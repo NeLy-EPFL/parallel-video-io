@@ -1,18 +1,18 @@
 [project]
 name = "parallel-video-io"
-version = "0.1.4"
+version = "0.1.5"
 description = "Tools for reading and writing videos, and loading them efficiently with PyTorch."
 authors = [
-    {name = "Sibo Wang-Chen", email = "sibo.wang@epfl.ch"}
+    { name = "Sibo Wang-Chen", email = "wangchensibo@epfl.ch" }
 ]
 readme = "README.md"
-license = {text = "MIT"}
+license = { text = "MIT" }
 requires-python = ">=3.10,<3.14"
 dependencies = [
-    "torch==2.9.*",  # specific to torchcodec 0.8
-    "imageio>=2.37.0,<3",
+    "torch==2.9.*",          # specific to torchcodec 0.8
+    "imageio[tifffile]>=2.37.0,<3",
     "imageio-ffmpeg==0.6.0",
-    "torchcodec==0.8.*",  # specific to torch 2.9
+    "torchcodec==0.8.*",    # specific to torch 2.9
     "joblib>=1.5.1,<2",
     "tqdm>=4.67,<5",
     "numpy>=2.0,<3",
@@ -20,12 +20,11 @@ dependencies = [
 ]
 
 [project.urls]
-repository = "https://github.com/sibocw/parallel-video-io"
-
-[tool.poetry]
-packages = [{include = "pvio", from = "src"}]
-
+Repository = "https://github.com/sibocw/parallel-video-io"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pvio"]

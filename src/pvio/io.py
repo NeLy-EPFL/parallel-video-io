@@ -1,6 +1,8 @@
 import numpy as np
 import json
 import logging
+import os
+import tempfile
 import imageio.v2 as imageio
 from pathlib import Path
 
@@ -10,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def read_frames_from_video(
     video_path: Path | str, frame_indices: list[int] | None = None
-) -> tuple[list[np.ndarray], float]:
+) -> tuple[list[np.ndarray], float | None]:
     """Read specific frames from a video file.
 
     Args:
@@ -36,24 +38,12 @@ def read_frames_from_video(
     return frames, fps
 
 
-_default_ffmpeg_params_for_video_writing = [
-    "-crf",
-    "15",  # Lower CRF = higher quality (15 is very high quality)
-    "-preset",
-    "slow",  # Slower preset = better compression efficiency
-    "-profile:v",
-    "high",  # Use high profile for better compression
-    "-level",
-    "4.0",  # H.264 level
-]
-
-
 def write_frames_to_video(
     video_path: Path | str,
     frames: list[np.ndarray],
     fps: float,
     codec: str = "libx264",
-    ffmpeg_params: list[str] = _default_ffmpeg_params_for_video_writing,
+    ffmpeg_params: list[str] | None = None,
     log_interval: int | None = None,
 ) -> None:
     """Write a sequence of frames to a video file.
@@ -65,11 +55,22 @@ def write_frames_to_video(
         fps (float): Frames per second for the output video.
         codec (str): Codec to use. Default: 'libx264'.
         ffmpeg_params (list[str]): Additional ffmpeg parameters. Default is a set of
-            parameters for high-quality H.264 encoding (see
-            _default_ffmpeg_params_for_video_writing).
+            parameters for high-quality H.264 encoding.
         log_interval (int | None): If set, log progress every `log_interval` frames at
             INFO level.
     """
+    if ffmpeg_params is None:
+        ffmpeg_params = [
+            "-crf",
+            "15",  # Lower CRF = higher quality (15 is very high quality)
+            "-preset",
+            "slow",  # Slower preset = better compression efficiency
+            "-profile:v",
+            "high",  # Use high profile for better compression
+            "-level",
+            "4.0",  # H.264 level
+        ]
+
     # Check frame size consistency
     if len(frames) == 0:
         raise ValueError("No frames provided to write_frames_to_video")
@@ -112,7 +113,7 @@ def get_video_metadata(
     cache_metadata: bool = True,
     use_cached_metadata: bool = True,
     metadata_suffix: str = ".metadata.json",
-):
+) -> dict[str, int | tuple[int, int] | float | None]:
     """Get number of frames, frame size, and FPS of a video file.
 
     Args:
@@ -138,8 +139,8 @@ def get_video_metadata(
             frame_size = tuple(metadata["frame_size"])
             fps = metadata["fps"]
         except Exception as e:
-            logger.critical(f"Corrupted metadata cache file {cache_path}")
-            raise e
+            logger.critical(f"Corrupted metadata cache file {cache_path}: {e}")
+            raise
     else:
         n_frames = check_num_frames(video_path)
         sample_frames, fps = read_frames_from_video(video_path, frame_indices=[0])
@@ -151,7 +152,11 @@ def get_video_metadata(
                 "frame_size": list(frame_size),
                 "fps": fps,
             }
-            with open(cache_path, "w") as f:
-                json.dump(metadata, f, indent=2)
+            with tempfile.NamedTemporaryFile(
+                mode="w", dir=cache_path.parent, suffix=".tmp", delete=False
+            ) as tmp_f:
+                tmp_path = tmp_f.name
+                json.dump(metadata, tmp_f, indent=2)
+            os.replace(tmp_path, cache_path)
 
     return {"n_frames": n_frames, "frame_size": frame_size, "fps": fps}

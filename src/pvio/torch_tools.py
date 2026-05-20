@@ -126,8 +126,13 @@ class VideoCollectionDataset(IterableDataset):
             frame_specs_all[start_global_frame_id:end_global_frame_id, 0] = video_id
             frame_specs_all[start_global_frame_id:end_global_frame_id, 1] = local_vfids
             start_global_frame_id = end_global_frame_id
-        assert start_global_frame_id == self.n_frames_total
-        assert not np.any(frame_specs_all == -1)
+        if start_global_frame_id != self.n_frames_total:
+            raise RuntimeError(
+                f"Frame index mismatch after building frame_specs: "
+                f"got {start_global_frame_id}, expected {self.n_frames_total}"
+            )
+        if np.any(frame_specs_all == -1):
+            raise RuntimeError("frame_specs_all contains uninitialized entries")
 
         # Dynamically balance load among workers
         n_frames_per_worker = int(np.ceil(self.n_frames_total / n_loading_workers))
@@ -174,16 +179,21 @@ class VideoCollectionDataset(IterableDataset):
         for worker_chunks in self.worker_assignments:
             for _, start_vir_frame_id, end_vir_frame_id in worker_chunks:
                 _nframes_total_check += end_vir_frame_id - start_vir_frame_id
-        assert _nframes_total_check == self.n_frames_total, "Frame count mismatch."
+        if _nframes_total_check != self.n_frames_total:
+            raise RuntimeError(
+                f"Frame count mismatch: assigned {_nframes_total_check} frames "
+                f"but expected {self.n_frames_total}"
+            )
 
     def __iter__(self):
         # Get worker info for distributed loading
         worker_info = get_worker_info()
         if worker_info is None:
             # Single process
-            assert (
-                len(self.worker_assignments) == 1
-            ), "Using a single worker but worker assignments indicate multiple workers."
+            if len(self.worker_assignments) != 1:
+                raise RuntimeError(
+                    "Using a single worker but worker assignments indicate multiple workers."
+                )
             my_chunks = self.worker_assignments[0]
         else:
             # Split videos among workers

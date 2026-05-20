@@ -41,10 +41,10 @@ class Video(ABC):
         self.frame_range_requested = frame_range
 
         self.__setup_done = False
-        self.frame_range_effective: tuple[int, int] = None
-        self.n_frames_in_source_video: int = None
-        self.n_frames_in_range: int = None
-        self.frame_size: tuple[int, int] = None
+        self.frame_range_effective: tuple[int, int] | None = None
+        self.n_frames_in_source_video: int | None = None
+        self.n_frames_in_range: int | None = None
+        self.frame_size: tuple[int, int] | None = None
         self.fps: float | None = None
 
     def __len__(self):
@@ -61,6 +61,14 @@ class Video(ABC):
         """Check if user-specified `frame_range` is valid. If it's set to None for
         automatic determination, do so using `n_frames_source_video`."""
         if requested_frame_range is not None:
+            if (
+                not isinstance(requested_frame_range, (tuple, list))
+                or len(requested_frame_range) != 2
+            ):
+                raise ValueError(
+                    f"frame_range must be a tuple of 2 integers, "
+                    f"got {requested_frame_range!r}"
+                )
             start, end = requested_frame_range
             if start < 0 or end > n_frames_source_video or start >= end:
                 raise ValueError(
@@ -350,7 +358,7 @@ class ImageDirVideo(Video):
                 f"A directory containing individual frame images is expected."
             )
 
-    def _post_setup(self):
+    def _post_setup(self) -> bool:
         """Verify that all frame indices in the effective frame range are present. This
         has to be implemented in _post_setup because frame range is not resolved until
         this point."""
@@ -394,9 +402,8 @@ class ImageDirVideo(Video):
 
     def _read_frame(self, index: int, transform: Callable | None) -> torch.Tensor:
         vir_frame_id = index  # `index` is the virtual frame_id - make alias for clarity
-        assert (
-            vir_frame_id in self.vir_frame_id_to_path
-        ), f"Frame index {index} not found"
+        if vir_frame_id not in self.vir_frame_id_to_path:
+            raise IndexError(f"Frame index {index} out of bounds")
         frame_path = self.vir_frame_id_to_path[vir_frame_id]
         frame = imageio.imread(frame_path)
         frame = torch.from_numpy(frame)
