@@ -17,7 +17,7 @@ After finding myself writing the same thing over and over again for different pr
 
 ## Installation, code examples, and documentation
 
-See [the documentation site](https://sibocw.github.io/parallel-video-io/).
+See [the documentation site](https://nely-epfl.github.io/parallel-video-io/).
 
 
 ## Development
