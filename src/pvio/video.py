@@ -235,9 +235,12 @@ class EncodedVideo(Video):
 
         vir_frame_id = index  # `index` is the virtual frame_id - make alias for clarity
 
-        # If requested frame is already in buffer, return it directly
+        # If requested frame is already in buffer, apply transform and return
         if vir_frame_id in self._buffer:
-            return self._buffer[vir_frame_id]
+            frame = self._buffer[vir_frame_id]
+            if transform is not None:
+                frame = transform(frame)
+            return frame
 
         # Buffer has expired - expunge & refill
         # (loading many frames at once reduces decoding overhead)
@@ -252,12 +255,12 @@ class EncodedVideo(Video):
         batch_frames = self._decoder.get_frames_at(phy_frame_ids_to_buffer).data  # NCHW
         batch_frames = batch_frames.float() / 255.0  # normalize to [0, 1]
         for i, _vfid in enumerate(vir_frame_ids_to_buffer):
-            frame = batch_frames[i, ...]
-            if transform is not None:
-                frame = transform(frame)
-            self._buffer[_vfid] = frame
+            self._buffer[_vfid] = batch_frames[i, ...]  # store pre-transform
 
-        return self._buffer[vir_frame_id]
+        frame = self._buffer[vir_frame_id]
+        if transform is not None:
+            frame = transform(frame)
+        return frame
 
     @staticmethod
     def _create_video_decoder(video_path: Path, lock_path: Path) -> VideoDecoder:

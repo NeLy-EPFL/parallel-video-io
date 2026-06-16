@@ -283,6 +283,31 @@ def test_small_video_worker_reduction(tmp_path: Path):
     assert total_frames == 5
 
 
+def test_encoded_video_buffer_stores_pretransform(tmp_path: Path):
+    """Bug 2: EncodedVideo buffer must cache raw frames, not post-transform frames.
+
+    If the buffer stores the transformed frame, a second read of the same frame
+    with a different transform returns the wrong result.
+    """
+    video_path = create_test_video(tmp_path / "vid.mp4", n_frames=5)
+    video = EncodedVideo(video_path, buffer_size=10)
+    video.setup()
+
+    double = lambda x: x * 2.0  # noqa: E731
+    half = lambda x: x * 0.5  # noqa: E731
+
+    # First read populates the buffer
+    frame_doubled = video.read_frame(1, transform=double)
+    # Second read on the same frame is a cache hit
+    frame_halved = video.read_frame(1, transform=half)
+
+    # With bug: frame_halved == frame_doubled (transform baked into cache)
+    # With fix: they differ because transforms are applied to the raw cached frame
+    assert not torch.allclose(frame_doubled, frame_halved), (
+        "Buffer is storing post-transform frames; second read ignores its transform"
+    )
+
+
 def test_image_dir_video_frame_range_offset(tmp_path: Path):
     """Bug 1: ImageDirVideo.read_frame(n) must return frame at physical position
     frame_range[0]+n, not position n."""
