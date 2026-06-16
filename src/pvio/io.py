@@ -17,16 +17,12 @@ def read_frames_from_video(
 
     Args:
         video_path (Path | str): Path to the video file.
-        frame_indices (list[int] | None): List of frame indices to read. If None, read
-            all frames.
-
-    Raises:
-        ValueError: If the video file cannot be read.
-        IndexError: If the frame indices are invalid.
+        frame_indices (list[int] | None): Indices to read. If None, reads all frames.
 
     Returns:
-        frames (list[np.ndarray]): List of frames as numpy arrays.
-        fps (float): FPS of the video.
+        frames (list[np.ndarray]): Frames as uint8 numpy arrays in [height, width,
+            channels] format.
+        fps (float | None): FPS reported by the container, or None if unavailable.
     """
     frames = []
     with imageio.get_reader(video_path) as reader:
@@ -54,8 +50,8 @@ def write_frames_to_video(
             [height, width, channels] format).
         fps (float): Frames per second for the output video.
         codec (str): Codec to use. Default: 'libx264'.
-        ffmpeg_params (list[str]): Additional ffmpeg parameters. Default is a set of
-            parameters for high-quality H.264 encoding.
+        ffmpeg_params (list[str] | None): Raw ffmpeg parameter list. If None (default),
+            uses high-quality H.264 defaults (CRF 15, slow preset, high profile).
         log_interval (int | None): If set, log progress every `log_interval` frames at
             INFO level.
     """
@@ -114,19 +110,23 @@ def get_video_metadata(
     use_cached_metadata: bool = True,
     metadata_suffix: str = ".metadata.json",
 ) -> dict[str, int | tuple[int, int] | float | None]:
-    """Get number of frames, frame size, and FPS of a video file.
+    """Return frame count, frame size, and FPS for a video file.
+
+    Results are cached to a sidecar file (video stem + metadata_suffix) to avoid
+    re-reading on subsequent calls.
 
     Args:
         video_path (Path | str): Path to the video file.
-        cache_metadata (bool): Whether to cache the metadata to a JSON file. Default is
-            True.
-        use_cached_metadata (bool): Whether to use cached metadata if available. Default
-            is True.
-        metadata_suffix (str): Suffix to use for the metadata cache file. Default is
-            ".metadata.json".
+        cache_metadata (bool): Write metadata to a cache file after reading.
+        use_cached_metadata (bool): Return cached metadata if the sidecar exists.
+        metadata_suffix (str): Suffix appended to the video stem for the cache file
+            (via Path.with_suffix). Default ".metadata.json".
 
     Returns:
-        dict: A dictionary containing the video metadata.
+        dict with keys:
+            "n_frames" (int): Total frame count.
+            "frame_size" (tuple[int, int]): (height, width).
+            "fps" (float | None): Frames per second, or None if unavailable.
     """
     video_path = Path(video_path)
     cache_path = video_path.with_suffix(metadata_suffix)

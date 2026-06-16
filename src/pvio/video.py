@@ -24,18 +24,15 @@ class Video(ABC):
         path: Path | str,
         frame_range: tuple[int, int] | None = None,
     ):
-        r"""Encapsulate a "video," which can be either a video file or a directory
-        containing individual image files. You can also specify a range of frames, which
-        allows you to treat a subset of the video as a separate video.
+        r"""Base class for a video source (a file or a directory of images).
 
-        NOTE: Upon `__init__`, nothing is actually loaded yet. The object only contains
-        a specification of where the video is and what to read from it. It is required to
-        call `.setup()` after init to load metadata and prepare for reading.
+        Nothing is loaded at construction time. Call `.setup()` before reading frames.
 
         Args:
-            path (Path | str): Video path, exactly what it is depends on the backend.
-            frame_range (tuple[int, int] | None): If specified, only frames in this
-                range [start, end) are considered part of the video.
+            path (Path | str): Path to the video source. Interpretation depends on
+                the backend subclass.
+            frame_range (tuple[int, int] | None): If specified, only frames in
+                [start, end) are exposed. Defaults to the full video.
         """
         self.path = Path(path)
         self.frame_range_requested = frame_range
@@ -58,8 +55,7 @@ class Video(ABC):
     def _resolve_effective_frame_range(
         requested_frame_range: tuple[int, int] | None, n_frames_source_video: int
     ) -> tuple[int, int]:
-        """Check if user-specified `frame_range` is valid. If it's set to None for
-        automatic determination, do so using `n_frames_source_video`."""
+        """Validate `frame_range`; if None, return (0, n_frames_source_video)."""
         if requested_frame_range is not None:
             if (
                 not isinstance(requested_frame_range, (tuple, list))
@@ -83,9 +79,8 @@ class Video(ABC):
             return (0, n_frames_source_video)
 
     def setup(self, *args, **kwargs) -> None:
-        """This method is to be called after `__init__`. It first validates arguments
-        given to `__init__`, loads metadata, and then calls the backend subclass's
-        `._post_setup()` method with arguments passed to this method."""
+        """Call after `__init__`. Validates init arguments, loads metadata, and
+        calls `._post_setup()` with any extra arguments passed here."""
         if self.__setup_done:
             logger.warning(
                 f"Video at path {self.path} is already set up. Skipping redundant call."
@@ -122,14 +117,9 @@ class Video(ABC):
     def read_frame(
         self, index: int, transform: Callable | None = None, *args, **kwargs
     ) -> torch.Tensor:
-        """Read a single frame at the specified index. A transform can be supplied to
-        modify the frame after reading.
-
-        Note: `index` here is the **virtual** frame index, i.e. the index is 0 at the
-        start of the effective frame range.
-
-        This is a wrapper around the actual `._read_frame()` method implemented by the
-        backend subclass."""
+        """Read a single frame. `index` is the virtual frame index — 0 corresponds to
+        the start of the effective frame range. `transform`, if given, is applied to the
+        CHW float tensor before returning."""
         if not self.__setup_done:
             logger.warning(
                 f"Video at path {self.path} is not set up yet. Call `.setup()` first. "
@@ -142,29 +132,25 @@ class Video(ABC):
     # THE FOLLOWING METHODS **MUST** BE IMPLEMENTED BY BACKEND SUBCLASSES
     @abstractmethod
     def _validate_init_params(self) -> None:
-        """Check if the provided path is valid for this type of video. Nothing is
-        returned; raise exceptions instead if there's any issue."""
+        """Validate the path for this backend. Raise on any error; return None."""
         pass
 
     @abstractmethod
     def _load_metadata(self) -> tuple[int, tuple[int, int], float]:
-        """Load and return the following: (1) total number of frames in the source video
-        (in the entire video, not just in the specified frame_range), (2) frame size as
-        a tuple (height, width), and (3) fps as a float (or None if not applicable)."""
+        """Return (n_frames_total, (height, width), fps).
+
+        n_frames_total is the full frame count of the source, not clipped to frame_range.
+        fps may be None if not applicable (e.g. image directories)."""
         pass
 
     @abstractmethod
     def _read_frame(
         self, index: int, transform: Callable | None = None, *args, **kwargs
     ) -> torch.Tensor:
-        """Read a single frame at the specified index. An optional `transform` argument
-        must be supported. Returns the frame as a torch Tensor.
+        """Return the frame at virtual index `index` as a CHW float tensor in [0, 1].
+        Apply `transform` after loading if provided.
 
-        IMPORTANT: `index` here is the **virtual** frame index, i.e. the index is 0 at
-        the start of the effective frame range.
-
-        This method will be wrapped by the public `.read_frame()` method.
-        """
+        `index` 0 corresponds to the start of the effective frame range."""
         pass
 
     # THE FOLLOWING METHODS CAN BE **OPTIONALLY** IMPLEMENTED BY BACKEND SUBCLASSES
@@ -193,12 +179,10 @@ class EncodedVideo(Video):
             path (Path | str): Path to the video file.
             frame_range (tuple[int, int] | None): If specified, only frames in this
                 range [start, end) are considered part of the video.
-            buffer_size (int): Number of frames to buffer when reading from video files.
-                Decoding frames one by one is very inefficient. Since we know we're
-                likely to load many frames in sequence, we can decode a batch of frames
-                at once and buffer them. The optimal buffer size depends on keypoint
-                intervals in the video, RAM availability, etc., but 64 (default) is a
-                sweet spot in most cases.
+            buffer_size (int): Frames to decode in one batch. Larger values reduce
+                decoding overhead at the cost of memory. Optimal size depends on
+                keyframe intervals and available RAM; 64 (default) works well in most
+                cases.
             cache_metadata (bool): Whether to cache video metadata to disk for faster
                 subsequent metadata reads.
             use_cached_metadata (bool): Whether to use cached metadata when available.
@@ -277,15 +261,13 @@ class EncodedVideo(Video):
 
     @staticmethod
     def _create_video_decoder(video_path: Path, lock_path: Path) -> VideoDecoder:
-        """Create a TorchCodec VideoLoader object in a process-safe way. This function
-        uses a file lock to prevent race conditions where multiple processes try to
-        create VideoDecoder instances for the same file simultaneously. Without this,
-        the loading workers sometimes (but not always) segfault. It's unclear to me how
-        this happens, but I think it probably has to do with some global state that
-        ffmpeg internally builds upon first access, which is mutex-managed among ffmpeg
-        workers internally but not safe across multiple calling processes. This is not a
-        problem for actual frame reads because the global state becomes read-only after
-        init. See https://ffmpeg.org/pipermail/libav-user/2014-August/007298.html"""
+        """Create a TorchCodec VideoDecoder under a file lock.
+
+        The lock prevents concurrent processes from racing on VideoDecoder
+        construction, which can cause segfaults. FFmpeg initialises global state on
+        first use; that initialisation is not safe across processes, only across
+        threads. After init the state is read-only, so parallel frame reads are fine.
+        See https://ffmpeg.org/pipermail/libav-user/2014-August/007298.html"""
         with open(lock_path, "w") as lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
             decoder = VideoDecoder(
@@ -313,13 +295,11 @@ class ImageDirVideo(Video):
             path (Path | str): Path to the directory containing frames.
             frame_range (tuple[int, int] | None): If specified, only frames in this
                 range [start, end) are considered part of the video.
-            frame_id_regex (str | re.Pattern | None): For each frame file, the frame
-                index is parsed from the filename using this regular expression. The
-                default r"frame\D*(\d+)(?!\d)" is a pretty powerful one: it can broadly
-                handle filenames like "frame1.jpg", "frame002.tif", "frame_3.png",
-                "frame-4.bmp", "frame_id=05.custom.suffix". Use an online tool like
-                https://regex101.com/ to test your regex patterns. If None, filenames
-                are sorted alphabetically and frame indices are assigned from 0.
+            frame_id_regex (str | re.Pattern | None): Regex used to parse the frame
+                index from each filename (must capture exactly one group). The default
+                handles names like "frame1.jpg", "frame002.tif", "frame_3.png",
+                "frame-4.bmp", "frame_id=05.ext". If None, files are sorted
+                alphabetically and indices are assigned 0, 1, 2, …
         """
         super().__init__(path, frame_range)
         if frame_id_regex is not None and isinstance(frame_id_regex, str):
@@ -359,9 +339,9 @@ class ImageDirVideo(Video):
             )
 
     def _post_setup(self) -> bool:
-        """Verify that all frame indices in the effective frame range are present. This
-        has to be implemented in _post_setup because frame range is not resolved until
-        this point."""
+        """Build the virtual/physical frame-id ↔ path mappings.
+        Called after frame_range_effective is resolved so the mapping can be
+        restricted to the requested range."""
         # Index frame paths by frame_ids
         all_paths = [path for path in self.path.iterdir() if path.is_file()]
         if self.frame_id_regex is None:
