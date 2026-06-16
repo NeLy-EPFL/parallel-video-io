@@ -168,10 +168,13 @@ class VideoCollectionDataset(IterableDataset):
             unique_video_ids = np.unique(my_specs[:, 0])
             for video_id in unique_video_ids:
                 vir_frame_ids_local = my_specs[my_specs[:, 0] == video_id, 1]
-                start_vir_frame_id = vir_frame_ids_local[0]
-                end_vir_frame_id = vir_frame_ids_local[-1] + 1  # exclusive
+                # Cast to Python int: these flow into the yielded batch dicts, and the
+                # public API documents video_indices/frame_indices as lists of int (not
+                # numpy.int32, which would surprise strict isinstance checks / JSON).
+                start_vir_frame_id = int(vir_frame_ids_local[0])
+                end_vir_frame_id = int(vir_frame_ids_local[-1]) + 1  # exclusive
                 self.worker_assignments[worker_id].append(
-                    (video_id, start_vir_frame_id, end_vir_frame_id)
+                    (int(video_id), start_vir_frame_id, end_vir_frame_id)
                 )
         _nframes_total_check = 0
         for worker_chunks in self.worker_assignments:

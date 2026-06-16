@@ -1,103 +1,210 @@
 # Bug Report
 
-Bugs found during audit of v0.1.5. Listed roughly in descending severity.
+Bugs found during audit of the current `dev-v0.1.6` tree. Listed roughly in
+descending severity.
+
+The full test suite (72 tests) passes, so none of these are caught by the
+existing tests.
+
+**Status (updated):**
+- BUG-A — **fixed** (`mkstemp` fd now closed).
+- BUG-B / BUG-C — **pending decision** (lock redesign; see notes below).
+- BUG-D — **resolved as documented behavior** (frame_range is positional by design;
+  docstrings now state this explicitly).
+- BUG-F — **fixed** (removed non-functional `*args`/`**kwargs` plumbing).
+- BUG-G — **fixed** (worker-assignment indices cast to Python `int`).
+- BUG-E, BUG-H — still open (not yet addressed).
 
 ---
 
-## BUG-1 — `ImageDirVideo` ignores `frame_range` in path lookup
+## BUG-A — File-descriptor leak: `mkstemp()` handle never closed
 
-**File:** `src/pvio/video.py`, `ImageDirVideo._post_setup` (lines 361–388)
-
-`_post_setup` populates `vir_frame_id_to_path` with entries `0 .. N-1` for every file in the directory, regardless of `frame_range_effective`. As a result, `__len__` returns the correct (range-bounded) count, but `read_frame(n)` looks up the wrong file — it returns the frame at global sort position `n`, not at position `frame_range_effective[0] + n`.
-
-**Example:**
-```python
-video = ImageDirVideo("dir_with_10_frames/", frame_range=(3, 7))
-video.setup()
-len(video)          # → 4  (correct)
-video.read_frame(0) # → file at sort position 0, NOT position 3 (wrong)
-```
-
-`EncodedVideo` handles this correctly via `phy_frame_ids_to_buffer = vir_frame_ids_to_buffer + self.frame_range_effective[0]`. `ImageDirVideo` has no equivalent offset.
-
----
-
-## BUG-2 — `EncodedVideo` buffer stores post-transform frames
-
-**File:** `src/pvio/video.py`, `EncodedVideo._read_frame` (lines 259–276)
-
-When the frame buffer is filled, each frame has `transform` applied before being stored. On a subsequent cache hit the stored (transformed) frame is returned directly, without considering the `transform` argument of the new call. If `_read_frame` is called twice for the same frame index with different transforms, the second call returns a frame that had the first transform applied.
-
-This is benign under `VideoCollectionDataset`, which always passes the same transform. However, the public `read_frame` API accepts an arbitrary per-call transform, making the behaviour silently wrong in the general case.
-
----
-
-## BUG-3 — `_resolve_n_workers_spec` rejects `n_workers > cpu_count()`
-
-**File:** `src/pvio/torch_tools.py`, `_resolve_n_workers_spec` (lines 380–403)
-
-The function raises `ValueError` for any `n_workers` greater than `cpu_count()`. PyTorch's `DataLoader` imposes no such restriction, and requesting more workers than cores is a legitimate configuration (e.g. to overlap I/O with compute). Users who pass `num_workers=cpu_count()+1` or any larger value will get an error that contradicts standard DataLoader expectations.
-
----
-
-## BUG-4 — Metadata cache path replaces the video extension rather than appending
-
-**File:** `src/pvio/io.py`, `get_video_metadata` (line 132)
+**File:** `src/pvio/video.py`, `EncodedVideo.__init__` (lines 201–203)
 
 ```python
-cache_path = video_path.with_suffix(metadata_suffix)
+_, temp_path = mkstemp()
+self._lock_path = Path(temp_path)
 ```
 
-`Path.with_suffix` replaces the existing extension. `"video.mp4".with_suffix(".metadata.json")` → `"video.metadata.json"`, not `"video.mp4.metadata.json"`. Two videos with the same stem but different extensions (e.g. `clip.mp4` and `clip.avi`) map to the same cache file, causing silent metadata corruption for whichever is written second.
+`mkstemp()` **opens** the temp file and returns an OS-level file descriptor as
+its first element. That fd is discarded (`_`) and never closed, so every
+`EncodedVideo` instance leaks one open file descriptor for the lifetime of the
+process. The descriptor is unrelated to the locking logic — the lock is taken
+later via a separate `open(lock_path, "w")` in `_create_video_decoder`.
+
+**Confirmed:** creating 50 `EncodedVideo` objects raises the process fd count by
+exactly 50. A collection of a few thousand videos (the intended use case) will
+exhaust the default `ulimit -n` (often 1024) and fail with `OSError: [Errno 24]
+Too many open files`, typically during `VideoCollectionDataset.__init__` where
+all `EncodedVideo` objects are constructed up front.
+
+**Fix direction:** close the fd immediately (`os.close(fd)`), or use
+`tempfile.mkstemp` only for the name, or use `NamedTemporaryFile(delete=False)`
+in a context manager.
 
 ---
 
-## BUG-5 — `fcntl` is imported unconditionally (Unix-only module)
+## BUG-B — Per-video lock files do not serialize `VideoDecoder` construction across processes
 
-**File:** `src/pvio/video.py`, line 13
+**File:** `src/pvio/video.py`, `EncodedVideo.__init__` + `_create_video_decoder`
+(lines 201–203, 266–280)
+
+Each `EncodedVideo` creates its **own** lock file via `mkstemp()`
+(confirmed: two videos get two different lock paths). The file lock in
+`_create_video_decoder` is therefore per-video, but the race it is documented to
+prevent is *global*:
+
+> "FFmpeg initialises global state on first use; that initialisation is not safe
+> across processes …"
+
+In the normal parallel scenario, different DataLoader worker processes are
+assigned **different** videos and each constructs its first `VideoDecoder`
+concurrently — but for different videos, hence different lock files, hence **no
+mutual exclusion**. The lock only serializes the rare case where two processes
+construct a decoder for the *same* video object. As written, the mechanism does
+not actually protect against the cross-process FFmpeg-init segfault it was added
+to fix.
+
+**Fix direction:** use a single, shared, fixed-path lock (one per machine, or one
+per video *file* path) so that all processes serialize on the same lock during
+decoder construction.
+
+**Reference note (libav-user 2014-08):** the linked thread is about *thread*
+safety, not *process* safety — global init (`avcodec_register_all`, lookup-table
+setup) must be synchronized across **threads within a process**; across processes
+the globals are not shared. DataLoader workers are separate processes and are
+single-threaded during construction, so the documented race largely cannot occur
+between them, and modern FFmpeg (≥4.0, used by torchcodec) made registration a
+no-op / thread-safe. The lock's docstring rationale (thread-vs-process) is
+inverted and should be corrected. Recommended: reproduce the original segfault on
+the pinned stack first; if it reproduces, use one fixed shared lock that is never
+unlinked (also fixes BUG-C); if not, remove the lock machinery entirely. Awaiting
+maintainer decision.
+
+---
+
+## BUG-C — `__del__` unlinks the shared lock file used by sibling worker processes
+
+**File:** `src/pvio/video.py`, `EncodedVideo.__del__` (lines 205–207)
 
 ```python
-import fcntl
+def __del__(self):
+    self._lock_path.unlink(missing_ok=True)
 ```
 
-`fcntl` does not exist on Windows. The import is at module level, so `import pvio.video` (and by extension `import pvio`) fails immediately on Windows. `pyproject.toml` declares no platform restriction.
+DataLoader workers are forked, so all worker copies of an `EncodedVideo` share
+the same `_lock_path` string. When the first worker to finish/garbage-collect
+runs `__del__`, it deletes the lock file that other workers may still be using.
+A later `open(lock_path, "w")` in another worker silently recreates the path as a
+**new inode**, so `flock` on it no longer provides mutual exclusion with any
+worker still holding the old inode. This compounds BUG-B and can re-introduce the
+decoder-construction race. (Severity is bounded by the fact that decoders are
+usually created early, before any worker exits.)
 
 ---
 
-## BUG-6 — `write_frames_to_video` always logs at `i=0`
+## BUG-D — `ImageDirVideo` `frame_range` indexes by sort position, not parsed frame id
 
-**File:** `src/pvio/io.py`, lines 97–98
+**File:** `src/pvio/video.py`, `ImageDirVideo._post_setup` (lines 344–376)
+
+The regex branch parses a physical frame id from each filename, sorts by it, then
+applies `frame_range` to the **enumeration index** `sorted_idx`, not to the parsed
+frame id:
 
 ```python
-if log_interval is not None and i % log_interval == 0:
-    logger.info(f"Written frame {i + 1}/{len(frames)}")
+phy_frame_id_and_path.sort(key=lambda x: x[0])
+for sorted_idx, (phy_frame_id, img_path) in enumerate(phy_frame_id_and_path):
+    self.phy_frame_id_to_path[phy_frame_id] = img_path
+    if start <= sorted_idx < end:      # <-- uses position, not phy_frame_id
+        ...
 ```
 
-`0 % anything == 0`, so the very first frame is always logged regardless of `log_interval`. The intended behaviour (log every N frames) would be `(i + 1) % log_interval == 0`.
+For directories whose frame ids are sparse/non-contiguous this gives surprising
+results. **Confirmed** with files `frame_000, frame_005, frame_010, frame_015,
+frame_020` and `frame_range=(1, 3)`: virtual frame 0 maps to physical id **5**,
+not id **1**. This is inconsistent with `EncodedVideo`, whose `frame_range`
+refers to actual frame indices, and it makes the parsed `phy_frame_id` (the whole
+point of the regex) irrelevant to range selection. The existing test
+`test_image_dir_video_frame_range_offset` passes only because it uses contiguous
+ids where `sorted_idx == phy_frame_id`.
+
+**Note:** the same `start/end` from `_resolve_effective_frame_range` is validated
+against `n_frames_total` (the file count), reinforcing that the intended unit is
+"count/position." If position-based indexing is the deliberate semantic, it
+should at least be documented; otherwise range selection should key off
+`phy_frame_id`.
+
+**Resolution:** positional indexing is the deliberate semantic (consistent with
+`EncodedVideo` and the count-based length model). The `ImageDirVideo` class and
+`_post_setup` docstrings now state this explicitly. No behavior change.
 
 ---
 
-## BUG-7 — `ImageDirVideo._load_metadata` samples frame size from an arbitrary file
+## BUG-E — `ImageDirVideo._load_metadata` samples `frame_size` from an arbitrary file
 
-**File:** `src/pvio/video.py`, `ImageDirVideo._load_metadata` (lines 391–401)
+**File:** `src/pvio/video.py`, `ImageDirVideo._load_metadata` (lines 378–393)
 
-`self.path.iterdir()` returns files in an OS-defined order. `all_files[0]` is whichever file the OS returns first, which may not be the first frame by name or index. If frames have mixed sizes, the `frame_size` reported by metadata (and stored on the `Video` object) may not reflect the majority or intended size. The practical risk is low for well-formed datasets, but the code should sort before sampling.
+```python
+all_files = [f for f in self.path.iterdir() if f.is_file()]
+...
+sample_frame = imageio.imread(all_files[0])
+frame_size = sample_frame.shape[:2]
+```
+
+`iterdir()` returns entries in OS-defined order, so `all_files[0]` is not the
+first frame by sort order and may not be representative. For datasets with mixed
+sizes the reported `frame_size` is non-deterministic. (Pre-existing, acknowledged
+in a code comment; carried over from the previous audit's BUG-7 and still
+unaddressed.) A related minor issue: any non-image file in the directory is
+counted toward `n_frames_total` and can be picked as the sample, raising on
+`imageio.imread`.
 
 ---
 
-## BUG-8 — `VideoCollectionDataset.__iter__` gives a misleading error when `assign_workers` was never called
+## BUG-F — `read_frame` forwards `*args` ahead of the `transform` keyword
 
-**File:** `src/pvio/torch_tools.py`, lines 192–196
+**File:** `src/pvio/video.py`, `Video.read_frame` (lines 118–131)
 
-If a caller uses `VideoCollectionDataset` directly with a standard `DataLoader` (bypassing `VideoCollectionDataLoader`) without calling `assign_workers` first, `self.worker_assignments` is `[]`. The check `len(self.worker_assignments) != 1` then raises:
+```python
+return self._read_frame(index, transform=transform, *args, **kwargs)
+```
 
-> "Using a single worker but worker assignments indicate multiple workers."
-
-Both the condition and the message are wrong in this case — there are zero assignments, not multiple. A missing-setup guard with a clear message would be more helpful.
+Python unpacks the positional `*args` into the parameter slots *after* `index` —
+i.e. into the `transform` positional slot — while `transform=transform` is also
+passed as a keyword. If any positional extra is ever supplied to `read_frame`,
+this raises `TypeError: got multiple values for argument 'transform'`. The
+concrete backends (`EncodedVideo._read_frame`, `ImageDirVideo._read_frame`) also
+declare only `(self, index, transform)` with no `*args`/`**kwargs`, so the
+documented "extra args" pass-through cannot work at all. Currently latent because
+no caller passes extras.
 
 ---
 
-## Minor / Documentation
+## BUG-G — Batch `video_indices` / `frame_indices` contain NumPy ints, not Python ints
 
-- **`_post_setup` signature mismatch:** `ImageDirVideo._post_setup(self)` does not accept `*args/**kwargs`, but the base class `setup()` calls `self._post_setup(*args, **kwargs)`. Any subclass that passes extra args through `setup()` will hit a `TypeError`.
-- **README cross-reference wrong module:** "Notes & troubleshooting" says to subclass `pvio.torch_tools.Video`, but `Video` lives in `pvio.video`.
+**File:** `src/pvio/torch_tools.py`, `assign_workers` (lines 168–175) and
+`__iter__` (lines 208–212)
+
+`np.unique(my_specs[:, 0])` yields `np.int32` `video_id` values, and
+`start/end_vir_frame_id` are NumPy ints sliced from `frame_specs_all`. These flow
+into the yielded dicts and the collated batch. The README and
+`VideoCollectionDataLoader` docstring promise `video_indices`/`frame_indices` are
+"list of int", but consumers receive `numpy.int32` objects. This can surprise
+code that does strict `isinstance(x, int)` checks or JSON-serializes the indices.
+Low severity but a documented-contract mismatch.
+
+---
+
+## BUG-H — Robustness: int32 frame index array and cache writes to read-only dirs
+
+**Files:** `src/pvio/torch_tools.py` line 119; `src/pvio/io.py` lines 155–160
+
+- `frame_specs_all = -np.ones((self.n_frames_total, 2), dtype=np.int32)` overflows
+  for collections exceeding ~2.1B total frames. Unlikely in practice, but the type
+  is needlessly narrow for a frame-index store.
+- `get_video_metadata` writes its cache via `NamedTemporaryFile(dir=cache_path.parent, ...)`.
+  If the video's directory is read-only, this raises even when the caller only
+  wanted metadata. The cache write is best-effort and arguably should degrade
+  gracefully (warn and skip) rather than abort the read.
+
+Both are minor robustness concerns rather than functional bugs.

@@ -1,4 +1,3 @@
-import sys
 import torch
 import logging
 import re
@@ -10,7 +9,7 @@ from typing import Callable
 from torchcodec.decoders import VideoDecoder
 from pathlib import Path
 from tempfile import mkstemp
-from os import getpid
+from os import close
 import fcntl
 
 from .io import get_video_metadata
@@ -116,7 +115,7 @@ class Video(ABC):
         self.__setup_done = True
 
     def read_frame(
-        self, index: int, transform: Callable | None = None, *args, **kwargs
+        self, index: int, transform: Callable | None = None
     ) -> torch.Tensor:
         """Read a single frame. `index` is the virtual frame index — 0 corresponds to
         the start of the effective frame range. `transform`, if given, is applied to the
@@ -128,7 +127,7 @@ class Video(ABC):
             )
             self.setup()
 
-        return self._read_frame(index, transform=transform, *args, **kwargs)
+        return self._read_frame(index, transform=transform)
 
     # THE FOLLOWING METHODS **MUST** BE IMPLEMENTED BY BACKEND SUBCLASSES
     @abstractmethod
@@ -146,7 +145,7 @@ class Video(ABC):
 
     @abstractmethod
     def _read_frame(
-        self, index: int, transform: Callable | None = None, *args, **kwargs
+        self, index: int, transform: Callable | None = None
     ) -> torch.Tensor:
         """Return the frame at virtual index `index` as a CHW float tensor in [0, 1].
         Apply `transform` after loading if provided.
@@ -198,8 +197,12 @@ class EncodedVideo(Video):
         self._decoder: VideoDecoder | None = None
         self._buffer: dict[int, torch.Tensor] = {}
 
-        # Make temp lock file to avoid race condition in video decoder creation
-        _, temp_path = mkstemp()
+        # Make temp lock file to avoid race condition in video decoder creation.
+        # Only the path is needed; close the fd that mkstemp opens, otherwise every
+        # EncodedVideo instance leaks an open file descriptor for the life of the
+        # process (a collection of many videos would exhaust the fd limit).
+        fd, temp_path = mkstemp()
+        close(fd)
         self._lock_path = Path(temp_path)
 
     def __del__(self):
@@ -297,7 +300,13 @@ class ImageDirVideo(Video):
         Args:
             path (Path | str): Path to the directory containing frames.
             frame_range (tuple[int, int] | None): If specified, only frames in this
-                range [start, end) are considered part of the video.
+                range [start, end) are exposed. Note: start/end index the **sorted
+                position** of the frames (0-based), not the physical frame id parsed
+                from the filename. So with files whose parsed ids are 0, 5, 10, 15, 20,
+                ``frame_range=(1, 3)`` exposes the 2nd and 3rd files (parsed ids 5 and
+                10), matching how `EncodedVideo` treats frame_range as a positional
+                slice. The parsed ids are used only for ordering and remain accessible
+                via `frame_id_vir2phy` / `phy_frame_id_to_path`.
             frame_id_regex (str | re.Pattern | None): Regex used to parse the frame
                 index from each filename (must capture exactly one group). The default
                 handles names like "frame1.jpg", "frame002.tif", "frame_3.png",
@@ -344,7 +353,13 @@ class ImageDirVideo(Video):
     def _post_setup(self, *args, **kwargs) -> bool:
         """Build the virtual/physical frame-id ↔ path mappings.
         Called after frame_range_effective is resolved so the mapping can be
-        restricted to the requested range."""
+        restricted to the requested range.
+
+        frame_range is applied to the **sorted position** of each file (the
+        enumeration index below), not to the parsed physical frame id. Both the
+        regex and no-regex branches use this positional convention, so a frame_range
+        always selects a contiguous slice of the ordered sequence. See the class
+        docstring for the rationale."""
         all_paths = [path for path in self.path.iterdir() if path.is_file()]
         start, end = self.frame_range_effective
 
