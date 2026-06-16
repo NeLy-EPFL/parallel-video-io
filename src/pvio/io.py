@@ -90,7 +90,7 @@ def write_frames_to_video(
         for i, frame in enumerate(frames):
             video_writer.append_data(frame)
 
-            if log_interval is not None and i % log_interval == 0:
+            if log_interval is not None and (i + 1) % log_interval == 0:
                 logger.info(f"Written frame {i + 1}/{len(frames)}")
 
 
