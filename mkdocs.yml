@@ -1,7 +1,7 @@
 site_name: Parallel Video IO
-site_url: https://sibocw.github.io/parallel-video-io/
-repo_url: https://github.com/sibocw/parallel-video-io
-repo_name: sibocw/parallel-video-io
+site_url: https://nely-epfl.github.io/parallel-video-io/
+repo_url: https://github.com/NeLy-EPFL/parallel-video-io
+repo_name: NeLy-EPFL/parallel-video-io
 
 theme:
   name: material
