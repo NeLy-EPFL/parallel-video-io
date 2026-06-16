@@ -230,6 +230,8 @@ def test_simple_video_collection_loader(tmp_path: Path):
 
 def test_worker_resolution():
     """Test worker count resolution logic."""
+    from pvio.torch_tools import _resolve_n_workers_spec
+
     # Test automatic worker resolution
     loader = SimpleVideoCollectionLoader([], num_workers=-1, min_frames_per_worker=1)
     assert 0 < loader.num_workers <= cpu_count()
@@ -237,6 +239,10 @@ def test_worker_resolution():
     # Test zero workers becomes 1
     loader2 = SimpleVideoCollectionLoader([], num_workers=0, min_frames_per_worker=1)
     assert loader2.num_workers == 1
+
+    # Bug 3: values above cpu_count() must be accepted (valid DataLoader use case)
+    above_cpu = cpu_count() + 4
+    assert _resolve_n_workers_spec(above_cpu) == above_cpu
 
 
 def test_balanced_distribution_large_video(tmp_path: Path):

@@ -378,14 +378,14 @@ def _resolve_n_workers_spec(n_workers: int) -> int:
             f"implemented; will use a single worker process/thread instead."
         )
         return 1
-    elif 0 < n_workers <= n_cpu_cores:
+    elif n_workers > 0:
         return n_workers
     else:
-        pass  # cannot resolve
+        pass  # cannot resolve (n_workers < -n_cpu_cores)
 
     if n_workers_resolved is None:
         raise ValueError(
-            f"Invalid n_workers_spec={n_workers}. Must be between "
-            f"{-n_cpu_cores} and {n_cpu_cores} (inclusive, n_cpu_cores={n_cpu_cores})."
+            f"Invalid n_workers_spec={n_workers}. Must be >= {-n_cpu_cores} "
+            f"(n_cpu_cores={n_cpu_cores})."
         )
     return n_workers_resolved
