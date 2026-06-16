@@ -311,7 +311,10 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
         )
 
         num_workers = kwargs.get("num_workers", 0)  # 0 is normal DataLoader default
-        kwargs["num_workers"] = _resolve_n_workers_spec(num_workers)
+        if num_workers != 0:
+            kwargs["num_workers"] = _resolve_n_workers_spec(num_workers)
+        # num_workers=0 is passed through as-is; VideoCollectionDataLoader handles it by
+        # running in the main process while still calling assign_workers(1)
 
         logger.info("Creating VideoCollectionDataLoader")
         super().__init__(dataset, min_frames_per_worker=min_frames_per_worker, **kwargs)

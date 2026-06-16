@@ -234,9 +234,9 @@ def test_worker_resolution():
     loader = SimpleVideoCollectionLoader([], num_workers=-1, min_frames_per_worker=1)
     assert 0 < loader.num_workers <= cpu_count()
 
-    # Test zero workers becomes 1
+    # Test zero workers stays 0 (main-process DataLoader, no pickling)
     loader2 = SimpleVideoCollectionLoader([], num_workers=0, min_frames_per_worker=1)
-    assert loader2.num_workers == 1
+    assert loader2.num_workers == 0
 
 
 def test_balanced_distribution_large_video(tmp_path: Path):
