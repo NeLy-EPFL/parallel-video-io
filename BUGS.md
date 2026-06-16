@@ -7,8 +7,14 @@ The full test suite (72 tests) passes, so none of these are caught by the
 existing tests.
 
 **Status (updated):**
-- BUG-A — **fixed** (`mkstemp` fd now closed).
-- BUG-B / BUG-C — **pending decision** (lock redesign; see notes below).
+- BUG-A / BUG-B / BUG-C — **fixed together** by a lock redesign: the per-instance
+  `mkstemp` lock + `__del__` unlink were replaced with a single per-user shared lock
+  file (`_DECODER_INIT_LOCK_PATH`) that is never unlinked. This removes the fd leak
+  (A — no per-instance temp at all), actually serializes construction across all of a
+  user's worker processes (B), and eliminates the deletion race (C). The original
+  segfault could not be reproduced on the pinned stack (~2.5k concurrent
+  constructions, zero crashes); the lock is kept only as cheap defensive insurance.
+  See the reply on PR #7 for the full investigation.
 - BUG-D — **resolved as documented behavior** (frame_range is positional by design;
   docstrings now state this explicitly).
 - BUG-F — **fixed** (removed non-functional `*args`/`**kwargs` plumbing).

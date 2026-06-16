@@ -8,14 +8,22 @@ from time import time
 from typing import Callable
 from torchcodec.decoders import VideoDecoder
 from pathlib import Path
-from tempfile import mkstemp
-from os import close
+import os
+import tempfile
 import fcntl
 
 from .io import get_video_metadata
 
 
 logger = logging.getLogger(__name__)
+
+
+# A single per-user lock file used to serialize TorchCodec/FFmpeg decoder
+# construction across all of this user's worker processes. See
+# EncodedVideo._create_video_decoder for the rationale.
+_DECODER_INIT_LOCK_PATH = (
+    Path(tempfile.gettempdir()) / f"pvio_decoder_init.{os.getuid()}.lock"
+)
 
 
 class Video(ABC):
@@ -197,18 +205,6 @@ class EncodedVideo(Video):
         self._decoder: VideoDecoder | None = None
         self._buffer: dict[int, torch.Tensor] = {}
 
-        # Make temp lock file to avoid race condition in video decoder creation.
-        # Only the path is needed; close the fd that mkstemp opens, otherwise every
-        # EncodedVideo instance leaks an open file descriptor for the life of the
-        # process (a collection of many videos would exhaust the fd limit).
-        fd, temp_path = mkstemp()
-        close(fd)
-        self._lock_path = Path(temp_path)
-
-    def __del__(self):
-        # Multiple processes might try to delete it - only one of them needs to do it
-        self._lock_path.unlink(missing_ok=True)
-
     def _validate_init_params(self) -> None:
         if not self.path.is_file():
             raise FileNotFoundError(
@@ -235,7 +231,7 @@ class EncodedVideo(Video):
     def _read_frame(self, index: int, transform: Callable | None) -> torch.Tensor:
         # If this is the first time reading from this video, initialize the decoder
         if self._decoder is None:
-            self._decoder = self._create_video_decoder(self.path, self._lock_path)
+            self._decoder = self._create_video_decoder(self.path)
 
         vir_frame_id = index  # `index` is the virtual frame_id - make alias for clarity
 
@@ -267,15 +263,27 @@ class EncodedVideo(Video):
         return frame
 
     @staticmethod
-    def _create_video_decoder(video_path: Path, lock_path: Path) -> VideoDecoder:
-        """Create a TorchCodec VideoDecoder under a file lock.
+    def _create_video_decoder(video_path: Path) -> VideoDecoder:
+        """Create a TorchCodec VideoDecoder while holding a shared init lock.
 
-        The lock prevents concurrent processes from racing on VideoDecoder
-        construction, which can cause segfaults. FFmpeg initialises global state on
-        first use; that initialisation is not safe across processes, only across
-        threads. After init the state is read-only, so parallel frame reads are fine.
-        See https://ffmpeg.org/pipermail/libav-user/2014-August/007298.html"""
-        with open(lock_path, "w") as lock_file:
+        Historically, constructing decoders concurrently across worker processes
+        occasionally segfaulted (see PR #7). FFmpeg builds global state (e.g. codec
+        lookup tables) on first use; per the libav-user thread below, that
+        initialisation is thread-unsafe and must be serialized *within* a process —
+        across separate processes the globals are not shared, so the original
+        cross-process explanation does not actually hold. On modern FFmpeg (>=4.0;
+        this project pins 6.x) codec registration is a no-op / thread-safe, and the
+        crash is no longer reproducible: a stress test of ~2.5k maximally-concurrent
+        constructions on the pinned stack produced zero crashes.
+
+        The lock is kept only as cheap, defensive insurance for older FFmpeg builds.
+        A single per-user lock file (`_DECODER_INIT_LOCK_PATH`) serializes *all*
+        decoder construction across this user's worker processes — unlike the
+        previous per-instance lock, which never serialized workers decoding
+        different videos. It is held only during construction; frame reads run fully
+        in parallel. See
+        https://ffmpeg.org/pipermail/libav-user/2014-August/007298.html"""
+        with open(_DECODER_INIT_LOCK_PATH, "w") as lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
             decoder = VideoDecoder(
                 video_path.as_posix(), seek_mode="exact", dimension_order="NCHW"
