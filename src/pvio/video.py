@@ -338,32 +338,37 @@ class ImageDirVideo(Video):
                 f"A directory containing individual frame images is expected."
             )
 
-    def _post_setup(self) -> bool:
+    def _post_setup(self, *args, **kwargs) -> bool:
         """Build the virtual/physical frame-id ↔ path mappings.
         Called after frame_range_effective is resolved so the mapping can be
         restricted to the requested range."""
-        # Index frame paths by frame_ids
         all_paths = [path for path in self.path.iterdir() if path.is_file()]
+        start, end = self.frame_range_effective
+
         if self.frame_id_regex is None:
             all_paths.sort(key=lambda f: f.name)
             for i, img_path in enumerate(all_paths):
                 self.phy_frame_id_to_path[i] = img_path
-                self.vir_frame_id_to_path[i] = img_path
-                self.frame_id_vir2phy[i] = i
-                self.frame_id_phy2vir[i] = i
+                if start <= i < end:
+                    vir_frame_id = i - start
+                    self.vir_frame_id_to_path[vir_frame_id] = img_path
+                    self.frame_id_vir2phy[vir_frame_id] = i
+                    self.frame_id_phy2vir[i] = vir_frame_id
         else:
             phy_frame_id_and_path = [
                 (self._parse_frame_id_from_filename(p.name, self.frame_id_regex), p)
                 for p in all_paths
             ]
             phy_frame_id_and_path.sort(key=lambda x: x[0])
-            for vir_frame_id, (phy_frame_id, img_path) in enumerate(
+            for sorted_idx, (phy_frame_id, img_path) in enumerate(
                 phy_frame_id_and_path
             ):
                 self.phy_frame_id_to_path[phy_frame_id] = img_path
-                self.vir_frame_id_to_path[vir_frame_id] = img_path
-                self.frame_id_vir2phy[vir_frame_id] = phy_frame_id
-                self.frame_id_phy2vir[phy_frame_id] = vir_frame_id
+                if start <= sorted_idx < end:
+                    vir_frame_id = sorted_idx - start
+                    self.vir_frame_id_to_path[vir_frame_id] = img_path
+                    self.frame_id_vir2phy[vir_frame_id] = phy_frame_id
+                    self.frame_id_phy2vir[phy_frame_id] = vir_frame_id
 
         return True  # mark success
 

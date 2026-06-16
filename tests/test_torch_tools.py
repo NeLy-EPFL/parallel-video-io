@@ -281,3 +281,28 @@ def test_small_video_worker_reduction(tmp_path: Path):
 
     total_frames = sum(end - start for _, start, end in ds.worker_assignments[0])
     assert total_frames == 5
+
+
+def test_image_dir_video_frame_range_offset(tmp_path: Path):
+    """Bug 1: ImageDirVideo.read_frame(n) must return frame at physical position
+    frame_range[0]+n, not position n."""
+    d = tmp_path / "frames"
+    d.mkdir()
+    # 10 frames, each filled with a unique color value (0, 10, 20, ..., 90)
+    for i in range(10):
+        color = i * 10
+        img = np.full((8, 8, 3), fill_value=color, dtype=np.uint8)
+        imageio.imwrite(d / f"frame_{i:03d}.png", img)
+
+    video = ImageDirVideo(d, frame_range=(3, 7))
+    video.setup()
+
+    assert len(video) == 4
+
+    # Virtual index 0 → physical frame 3 → color=30
+    frame0 = video.read_frame(0)
+    assert abs(frame0.mean().item() - 30 / 255.0) < 0.01
+
+    # Virtual index 3 → physical frame 6 → color=60
+    frame3 = video.read_frame(3)
+    assert abs(frame3.mean().item() - 60 / 255.0) < 0.01
