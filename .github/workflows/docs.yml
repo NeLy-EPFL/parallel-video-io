@@ -22,7 +22,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --frozen --extra docs
+        run: uv sync --frozen --extra dev
 
       - name: Deploy docs to GitHub Pages
         run: uv run mkdocs gh-deploy --force --clean

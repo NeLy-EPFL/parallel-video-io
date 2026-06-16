@@ -39,6 +39,5 @@ pytest tests
 Build and preview the documentation site locally:
 
 ```bash
-uv sync --extra docs
 uv run mkdocs serve
 ```
