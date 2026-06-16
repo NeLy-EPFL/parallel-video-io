@@ -5,7 +5,7 @@ import imageio.v2 as imageio
 import numpy as np
 from abc import abstractmethod, ABC
 from time import time
-from typing import Callable
+from typing import Any, Callable
 from torchcodec.decoders import VideoDecoder
 from pathlib import Path
 import os
@@ -86,9 +86,20 @@ class Video(ABC):
             )
             return (0, n_frames_source_video)
 
-    def setup(self, *args, **kwargs) -> None:
-        """Call after `__init__`. Validates init arguments, loads metadata, and
-        calls `._post_setup()` with any extra arguments passed here."""
+    def setup(self, *args: Any, **kwargs: Any) -> None:
+        """Validate arguments, load metadata, and prepare this video for reading.
+
+        Must be called after ``__init__`` and before reading frames. Calling
+        :meth:`read_frame` without a prior ``setup`` triggers an automatic
+        setup with a warning.
+
+        Args:
+            *args: Forwarded to :meth:`_post_setup`.
+            **kwargs: Forwarded to :meth:`_post_setup`.
+
+        Raises:
+            RuntimeError: If :meth:`_post_setup` reports failure.
+        """
         if self.__setup_done:
             logger.warning(
                 f"Video at path {self.path} is already set up. Skipping redundant call."
@@ -125,9 +136,17 @@ class Video(ABC):
     def read_frame(
         self, index: int, transform: Callable | None = None
     ) -> torch.Tensor:
-        """Read a single frame. `index` is the virtual frame index — 0 corresponds to
-        the start of the effective frame range. `transform`, if given, is applied to the
-        CHW float tensor before returning."""
+        """Read a single frame as a CHW float32 tensor.
+
+        Args:
+            index: Virtual frame index; 0 is the start of the effective
+                frame range.
+            transform: Optional callable applied to the CHW float32 tensor
+                before returning.
+
+        Returns:
+            Frame as a CHW float32 tensor with values in ``[0, 1]``.
+        """
         if not self.__setup_done:
             logger.warning(
                 f"Video at path {self.path} is not set up yet. Call `.setup()` first. "
@@ -145,10 +164,14 @@ class Video(ABC):
 
     @abstractmethod
     def _load_metadata(self) -> tuple[int, tuple[int, int], float]:
-        """Return (n_frames_total, (height, width), fps).
+        """Return frame count, frame size, and FPS for the video source.
 
-        n_frames_total is the full frame count of the source, not clipped to frame_range.
-        fps may be None if not applicable (e.g. image directories)."""
+        Returns:
+            A 3-tuple ``(n_frames_total, (height, width), fps)``.
+            *n_frames_total* is the full frame count of the source, unclipped
+            by *frame_range*. *fps* may be ``None`` if not applicable (e.g.
+            for image directories).
+        """
         pass
 
     @abstractmethod
@@ -162,7 +185,7 @@ class Video(ABC):
         pass
 
     # THE FOLLOWING METHODS CAN BE **OPTIONALLY** IMPLEMENTED BY BACKEND SUBCLASSES
-    def _post_setup(self, *args, **kwargs) -> bool:
+    def _post_setup(self, *args: Any, **kwargs: Any) -> bool:
         """Optional backend-specific logic to be called at the end of `.setup()`.
         Should return True if setup is successful, False otherwise."""
         return True
@@ -358,7 +381,7 @@ class ImageDirVideo(Video):
                 f"A directory containing individual frame images is expected."
             )
 
-    def _post_setup(self, *args, **kwargs) -> bool:
+    def _post_setup(self, *args: Any, **kwargs: Any) -> bool:
         """Build the virtual/physical frame-id ↔ path mappings.
         Called after frame_range_effective is resolved so the mapping can be
         restricted to the requested range.

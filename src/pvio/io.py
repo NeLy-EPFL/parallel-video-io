@@ -16,13 +16,13 @@ def read_frames_from_video(
     """Read specific frames from a video file.
 
     Args:
-        video_path (Path | str): Path to the video file.
-        frame_indices (list[int] | None): Indices to read. If None, reads all frames.
+        video_path: Path to the video file.
+        frame_indices: Frame indices to read. If ``None``, reads all frames.
 
     Returns:
-        frames (list[np.ndarray]): Frames as uint8 numpy arrays in [height, width,
-            channels] format.
-        fps (float | None): FPS reported by the container, or None if unavailable.
+        A 2-tuple ``(frames, fps)``. *frames* is a list of uint8 numpy arrays
+        in ``(H, W, C)`` format. *fps* is the FPS reported by the container,
+        or ``None`` if unavailable.
     """
     frames = []
     with imageio.get_reader(video_path) as reader:
@@ -45,15 +45,19 @@ def write_frames_to_video(
     """Write a sequence of frames to a video file.
 
     Args:
-        video_path (Path | str): Path to save the video file.
-        frames (list[np.ndarray]): List of frames as numpy arrays (in
-            [height, width, channels] format).
-        fps (float): Frames per second for the output video.
-        codec (str): Codec to use. Default: 'libx264'.
-        ffmpeg_params (list[str] | None): Raw ffmpeg parameter list. If None (default),
-            uses high-quality H.264 defaults (CRF 15, slow preset, high profile).
-        log_interval (int | None): If set, log progress every `log_interval` frames at
-            INFO level.
+        video_path: Path for the output video file.
+        frames: Frames as uint8 numpy arrays in ``(H, W, C)`` format. All
+            frames must share the same spatial dimensions.
+        fps: Frames per second of the output video.
+        codec: FFmpeg codec name. Default: ``"libx264"``.
+        ffmpeg_params: Raw FFmpeg parameter list. If ``None``, uses
+            high-quality H.264 defaults (CRF 15, slow preset, high profile).
+        log_interval: If set, log progress every *log_interval* frames at
+            ``INFO`` level.
+
+    Raises:
+        ValueError: If *frames* is empty or contains frames with mismatched
+            dimensions.
     """
     if ffmpeg_params is None:
         ffmpeg_params = [
@@ -95,7 +99,17 @@ def write_frames_to_video(
 
 
 def check_num_frames(video_path: Path | str) -> int:
-    """Check number of frames in a video file."""
+    """Return the number of frames in a video file.
+
+    Args:
+        video_path: Path to the video file.
+
+    Returns:
+        Total frame count.
+
+    Raises:
+        RuntimeError: If the file cannot be opened.
+    """
     try:
         with imageio.get_reader(video_path) as reader:
             num_frames = reader.count_frames()
@@ -112,21 +126,21 @@ def get_video_metadata(
 ) -> dict[str, int | tuple[int, int] | float | None]:
     """Return frame count, frame size, and FPS for a video file.
 
-    Results are cached to a sidecar file (video stem + metadata_suffix) to avoid
+    Results are cached to a sidecar JSON file alongside the video to avoid
     re-reading on subsequent calls.
 
     Args:
-        video_path (Path | str): Path to the video file.
-        cache_metadata (bool): Write metadata to a cache file after reading.
-        use_cached_metadata (bool): Return cached metadata if the sidecar exists.
-        metadata_suffix (str): Suffix appended to the video stem for the cache file
-            (via Path.with_suffix). Default ".metadata.json".
+        video_path: Path to the video file.
+        cache_metadata: Write metadata to a cache file after reading.
+        use_cached_metadata: Return cached metadata if the sidecar file
+            exists. Set to ``False`` to force a fresh read.
+        metadata_suffix: Suffix appended to the video filename to form the
+            cache path. Default: ``".metadata.json"``.
 
     Returns:
-        dict with keys:
-            "n_frames" (int): Total frame count.
-            "frame_size" (tuple[int, int]): (height, width).
-            "fps" (float | None): Frames per second, or None if unavailable.
+        Dictionary with keys ``"n_frames"`` (int total frame count),
+        ``"frame_size"`` (tuple ``(height, width)``), and ``"fps"``
+        (float or ``None`` if unavailable).
     """
     video_path = Path(video_path)
     cache_path = video_path.parent / (video_path.name + metadata_suffix)

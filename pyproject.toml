@@ -29,6 +29,10 @@ dependencies = [
 dev = [
     "pytest>=9.0,<10.0",
     "ruff>=0.15",
+    # For docs
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.29",
+    "ruff>=0.15",
 ]
 
 [project.urls]

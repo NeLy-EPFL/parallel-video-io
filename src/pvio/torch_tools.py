@@ -4,7 +4,7 @@ import re
 import numpy as np
 from sys import stderr
 from multiprocessing import cpu_count
-from typing import Callable
+from typing import Any, Callable
 from torch.utils.data import IterableDataset, DataLoader, get_worker_info
 from pathlib import Path
 from joblib import Parallel, delayed
@@ -36,11 +36,10 @@ class VideoCollectionDataset(IterableDataset):
         Args:
             videos (list[Video]): Video objects to iterate. Videos are set up here;
                 do not call `.setup()` on them beforehand.
-            transform (Callable | None): Applied to each tensor before yielding. The
-            following operations are already applied: (i) conversion from numpy array to
-            torch tensor, (ii) conversion from height-width-channel to
-            channel-height-width format per PyTorch convention, and (iii) conversion
-            from uint8 in [0, 255] to float in [0, 1].
+            transform (Callable | None): Applied to each tensor before yielding.
+                The following are already applied before the transform: (i)
+                numpy array → torch tensor, (ii) HWC → CHW layout, and
+                (iii) uint8 ``[0, 255]`` → float32 ``[0, 1]``.
             use_cached_video_metadata (bool): Use cached metadata for EncodedVideo
                 objects if available. Set to False to force re-reading.
             n_frame_counting_workers (int): Parallel workers for pre-loading
@@ -237,7 +236,7 @@ class VideoCollectionDataLoader(DataLoader):
         self,
         dataset: VideoCollectionDataset,
         min_frames_per_worker: int = 300,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Wrap a VideoCollectionDataset in a DataLoader with automatic worker assignment.
 
@@ -293,14 +292,33 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
         n_frame_counting_workers: int = -1,
         progress_bar: bool | None = None,
         min_frames_per_worker: int = 300,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
-        """Combined dataset + dataloader for parallel video frame loading.
+        """Create a VideoCollectionDataset and VideoCollectionDataLoader in one call.
 
-        Each entry in `videos` may be a pre-constructed Video object or a path
-        (str/Path). Paths to files become EncodedVideo; paths to directories become
-        ImageDirVideo. All other keyword arguments are forwarded to
-        VideoCollectionDataset and DataLoader."""
+        Each entry in *videos* may be a pre-constructed :class:`Video` object
+        or a path (str / Path). Paths pointing to files become
+        :class:`EncodedVideo`; paths pointing to directories become
+        :class:`ImageDirVideo`.
+
+        Args:
+            videos: Video sources.
+            transform: Applied to each CHW float32 frame tensor before it is
+                yielded.
+            buffer_size: Decode-buffer size forwarded to :class:`EncodedVideo`
+                for file-path entries.
+            frame_id_regex: Regex forwarded to :class:`ImageDirVideo` for
+                directory-path entries.
+            use_cached_video_metadata: Use cached metadata when available. Set
+                to ``False`` to force fresh reads.
+            n_frame_counting_workers: Workers for parallel metadata loading.
+                ``-1`` uses all available cores.
+            progress_bar: Show a progress bar during metadata loading.
+                Defaults to ``True`` when stderr is a TTY.
+            min_frames_per_worker: Minimum frames per worker; see
+                :meth:`VideoCollectionDataset.assign_workers`.
+            **kwargs: Forwarded to :class:`~torch.utils.data.DataLoader`.
+        """
         logger.info(
             "Checking requested videos and creating Video objects from paths if needed"
         )
@@ -369,10 +387,20 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
 
 
 def _resolve_n_workers_spec(n_workers: int) -> int:
-    """Resolve a worker count spec to a concrete integer.
+    """Resolve a worker-count spec to a concrete positive integer.
 
-    Negative values follow joblib convention: -1 means all cores, -2 means all
-    but one, etc. 0 is mapped to 1 (main-process iteration is not implemented).
+    Negative values follow the joblib convention: ``-1`` means all cores,
+    ``-2`` means all but one, and so on. ``0`` is mapped to ``1`` because
+    main-process iteration is not implemented.
+
+    Args:
+        n_workers: Worker-count spec.
+
+    Returns:
+        Resolved worker count (always ≥ 1).
+
+    Raises:
+        ValueError: If *n_workers* is less than ``-n_cpu_cores``.
     """
     n_cpu_cores = cpu_count()
     n_workers_resolved = None
