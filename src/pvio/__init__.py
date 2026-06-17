@@ -14,6 +14,7 @@ from .io import (
     write_frames_to_video,
     check_num_frames,
     get_video_metadata,
+    VideoMetadata,
 )
 from .video import Video, EncodedVideo, ImageDirVideo
 from .torch_tools import (
@@ -30,6 +31,7 @@ __all__ = [
     "write_frames_to_video",
     "check_num_frames",
     "get_video_metadata",
+    "VideoMetadata",
     "Video",
     "EncodedVideo",
     "ImageDirVideo",

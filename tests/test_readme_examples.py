@@ -35,15 +35,14 @@ def test_readme_example_reading_video_metadata(tmp_path: Path):
 
     # To get more information
     meta = get_video_metadata(example_video)
-    print(meta)  # dict containing the keys "n_frames", "frame_size", and "fps"
+    print(meta)  # VideoMetadata(n_frames=..., frame_size=(h, w), fps=...)
 
     # Verify the example works
     assert isinstance(n_frames, int)
     assert n_frames == 30
-    assert isinstance(meta, dict)
-    assert "n_frames" in meta
-    assert "frame_size" in meta
-    assert "fps" in meta
+    assert meta.n_frames == 30
+    assert len(meta.frame_size) == 2
+    assert meta.fps is None or isinstance(meta.fps, float)
 
 
 def test_readme_example_reading_video_frames(tmp_path: Path):

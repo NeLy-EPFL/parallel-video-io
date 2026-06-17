@@ -32,8 +32,8 @@ def test_write_and_read_dummy_video(tmp_path: Path):
 
     # Check metadata
     meta = get_video_metadata(out, cache_metadata=True, use_cached_metadata=True)
-    assert meta["n_frames"] >= 1
-    assert meta["frame_size"] == (32, 32)
+    assert meta.n_frames >= 1
+    assert meta.frame_size == (32, 32)
 
 
 def test_write_frames_mismatched_sizes_raises(tmp_path: Path):
@@ -60,9 +60,9 @@ def test_get_video_metadata_uses_cache(tmp_path: Path):
 
     # Should use cached metadata
     meta = get_video_metadata(out, cache_metadata=True, use_cached_metadata=True)
-    assert meta["n_frames"] == 123
-    assert meta["frame_size"] == (32, 32)
-    assert meta["fps"] == 12.0
+    assert meta.n_frames == 123
+    assert meta.frame_size == (32, 32)
+    assert meta.fps == 12.0
 
 
 def test_get_video_metadata_corrupted_cache_raises(tmp_path: Path):
@@ -187,7 +187,7 @@ def test_get_video_metadata_cache_bypass(tmp_path: Path):
         json.dump({"n_frames": 999, "frame_size": [16, 16], "fps": 5.0}, f)
 
     meta = get_video_metadata(out, cache_metadata=False, use_cached_metadata=False)
-    assert meta["n_frames"] != 999
+    assert meta.n_frames != 999
 
 
 def test_get_video_metadata_no_cache_written(tmp_path: Path):
@@ -208,10 +208,10 @@ def test_get_video_metadata_returns_correct_types(tmp_path: Path):
     out = tmp_path / "types.mp4"
     write_frames_to_video(out, frames, fps=24.0)
     meta = get_video_metadata(out, cache_metadata=False, use_cached_metadata=False)
-    assert isinstance(meta["n_frames"], int)
-    assert isinstance(meta["frame_size"], tuple)
-    assert len(meta["frame_size"]) == 2
-    assert meta["fps"] is None or isinstance(meta["fps"], (int, float))
+    assert isinstance(meta.n_frames, int)
+    assert isinstance(meta.frame_size, tuple)
+    assert len(meta.frame_size) == 2
+    assert meta.fps is None or isinstance(meta.fps, (int, float))
 
 
 def test_check_num_frames_matches_metadata(tmp_path: Path):
@@ -222,9 +222,9 @@ def test_check_num_frames_matches_metadata(tmp_path: Path):
     write_frames_to_video(out, frames, fps=5.0)
     assert (
         check_num_frames(out)
-        == get_video_metadata(out, cache_metadata=False, use_cached_metadata=False)[
-            "n_frames"
-        ]
+        == get_video_metadata(
+            out, cache_metadata=False, use_cached_metadata=False
+        ).n_frames
     )
 
 

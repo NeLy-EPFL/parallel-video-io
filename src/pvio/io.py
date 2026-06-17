@@ -6,11 +6,29 @@ import tempfile
 import contextlib
 import imageio.v2 as imageio
 from pathlib import Path
+from typing import NamedTuple
 
 from . import _accel
 
 
 logger = logging.getLogger(__name__)
+
+
+class VideoMetadata(NamedTuple):
+    """Basic video metadata returned by :func:`get_video_metadata`.
+
+    A lightweight typed record (tuple-compatible) with three fields:
+
+    Attributes:
+        n_frames: Total frame count.
+        frame_size: ``(height, width)`` in pixels.
+        fps: Frames per second, or ``None`` if unavailable (e.g. image
+            directories).
+    """
+
+    n_frames: int
+    frame_size: tuple[int, int]
+    fps: float | None
 
 
 @contextlib.contextmanager
@@ -237,7 +255,7 @@ def get_video_metadata(
     cache_metadata: bool = True,
     use_cached_metadata: bool = True,
     metadata_suffix: str = ".metadata.json",
-) -> dict[str, int | tuple[int, int] | float | None]:
+) -> VideoMetadata:
     """Return frame count, frame size, and FPS for a video file.
 
     Results are cached to a sidecar JSON file alongside the video to avoid
@@ -252,9 +270,9 @@ def get_video_metadata(
             cache path. Default: ``".metadata.json"``.
 
     Returns:
-        Dictionary with keys ``"n_frames"`` (int total frame count),
-        ``"frame_size"`` (tuple ``(height, width)``), and ``"fps"``
-        (float or ``None`` if unavailable).
+        A :class:`VideoMetadata` named tuple with fields ``n_frames`` (int),
+        ``frame_size`` (``(height, width)`` tuple), and ``fps`` (float or
+        ``None`` if unavailable).
     """
     video_path = Path(video_path)
     cache_path = video_path.parent / (video_path.name + metadata_suffix)
@@ -287,4 +305,4 @@ def get_video_metadata(
                 json.dump(metadata, tmp_f, indent=2)
             os.replace(tmp_path, cache_path)
 
-    return {"n_frames": n_frames, "frame_size": frame_size, "fps": fps}
+    return VideoMetadata(n_frames=n_frames, frame_size=tuple(frame_size), fps=fps)

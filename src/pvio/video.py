@@ -255,9 +255,9 @@ class EncodedVideo(Video):
             cache_metadata=self.cache_metadata,
             use_cached_metadata=self.use_cached_metadata,
         )
-        n_frames_total = metadata["n_frames"]
-        frame_size = metadata["frame_size"]
-        fps = metadata["fps"]
+        n_frames_total = metadata.n_frames
+        frame_size = metadata.frame_size
+        fps = metadata.fps
 
         walltime = time() - start_time
         logger.debug(f"Loaded metadata for video {self.path} in {walltime:.2f}s.")

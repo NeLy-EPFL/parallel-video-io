@@ -29,7 +29,7 @@ print(n_frames)  # integer
 # Full metadata — results are cached to a JSON file alongside the video.
 # Control caching with the `cache_metadata` and `use_cached_metadata` arguments.
 meta = get_video_metadata("example.mp4")
-print(meta)  # dict with keys "n_frames", "frame_size", and "fps"
+print(meta.n_frames, meta.frame_size, meta.fps)  # VideoMetadata named tuple
 ```
 
 ## Reading video frames
