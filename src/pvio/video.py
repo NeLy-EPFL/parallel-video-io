@@ -271,12 +271,13 @@ class EncodedVideo(Video):
 
         vir_frame_id = index  # `index` is the virtual frame_id - make alias for clarity
 
-        # If requested frame is already in buffer, apply transform and return
+        # If requested frame is already in buffer, normalize, apply transform, return.
+        # The buffer holds raw uint8 frames; normalization happens per access so the
+        # buffer stays 4x smaller than a float32 buffer would (this is what lets a
+        # 64-frame buffer of high-resolution frames fit in GPU memory) and so the
+        # cached frame is never contaminated by a previously-applied transform.
         if vir_frame_id in self._buffer:
-            frame = self._buffer[vir_frame_id]
-            if transform is not None:
-                frame = transform(frame)
-            return frame
+            return self._normalize(self._buffer[vir_frame_id], transform)
 
         # Buffer has expired - expunge & refill
         # (loading many frames at once reduces decoding overhead)
@@ -289,11 +290,15 @@ class EncodedVideo(Video):
             vir_frame_ids_to_buffer + self.frame_range_effective[0]
         )
         batch_frames = self._decode_buffer(phy_frame_ids_to_buffer)  # NCHW uint8
-        batch_frames = batch_frames.float() / 255.0  # normalize to [0, 1]
         for i, _vfid in enumerate(vir_frame_ids_to_buffer):
-            self._buffer[_vfid] = batch_frames[i, ...]  # store pre-transform
+            self._buffer[_vfid] = batch_frames[i, ...]  # store raw uint8
 
-        frame = self._buffer[vir_frame_id]
+        return self._normalize(self._buffer[vir_frame_id], transform)
+
+    @staticmethod
+    def _normalize(frame_u8: torch.Tensor, transform: Callable | None) -> torch.Tensor:
+        """Convert a CHW uint8 frame to float32 in [0, 1] and apply *transform*."""
+        frame = frame_u8.float() / 255.0
         if transform is not None:
             frame = transform(frame)
         return frame
