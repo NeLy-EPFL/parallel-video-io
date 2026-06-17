@@ -233,8 +233,9 @@ class EncodedVideo(Video):
             use_cached_metadata (bool): Whether to use cached metadata when available.
                 Set to False to force re-load metadata.
             device (str | None): Decode device for TorchCodec. ``None`` (default)
-                auto-selects ``"cuda"`` when a CUDA GPU is available and ``"cpu"``
-                otherwise; pass ``"cpu"`` or ``"cuda"`` to force a choice. Exact
+                or ``"auto"`` auto-selects ``"cuda"`` when a CUDA GPU is available
+                and ``"cpu"`` otherwise; pass ``"cpu"`` or ``"cuda"`` to force a
+                choice. Exact
                 (frame-accurate) seeking is preserved on either device. GPU
                 decoding returns frames already resident in GPU memory. Note that
                 CUDA cannot be initialised inside forked DataLoader worker
@@ -277,7 +278,9 @@ class EncodedVideo(Video):
 
         return n_frames_total, frame_size, fps
 
-    def _read_frame(self, index: int, transform: Callable | None) -> torch.Tensor:
+    def _read_frame(
+        self, index: int, transform: Callable | None = None
+    ) -> torch.Tensor:
         # If this is the first time reading from this video, initialize the decoder
         if self._decoder is None:
             self._decoder = self._create_video_decoder(self.path, self.device)
@@ -527,7 +530,9 @@ class ImageDirVideo(Video):
 
         return n_frames_total, frame_size, fps
 
-    def _read_frame(self, index: int, transform: Callable | None) -> torch.Tensor:
+    def _read_frame(
+        self, index: int, transform: Callable | None = None
+    ) -> torch.Tensor:
         vir_frame_id = index  # `index` is the virtual frame_id - make alias for clarity
         if vir_frame_id not in self.vir_frame_id_to_path:
             raise IndexError(f"Frame index {index} out of bounds")
