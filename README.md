@@ -13,6 +13,14 @@ After finding myself writing the same thing over and over again for different pr
 3. PyTorch-compatible `VideoCollectionDataset` and `VideoCollectionDataLoader` that stream frames from many videos in parallel across worker processes.
     - `SimpleVideoCollectionLoader` provides a convenience API that combines dataset and dataloader creation in one call.
 
+**GPU acceleration is automatic.** On a machine with a CUDA GPU, decoding uses
+the GPU (TorchCodec/NVDEC, with frame-accurate seeking preserved) and writing
+uses the GPU encoder (FFmpeg/NVENC at a visually-lossless setting); both fall
+back to the CPU when no GPU is available. `SimpleVideoCollectionLoader` runs in
+the main process when decoding on the GPU (CUDA cannot be used in forked
+workers). Pass `device="cpu"` (loader/`EncodedVideo`) or an explicit `codec=`
+(`write_frames_to_video`) to opt out.
+
 **Linux only.** macOS and Windows are not currently supported.
 
 ## Installation, code examples, and documentation
