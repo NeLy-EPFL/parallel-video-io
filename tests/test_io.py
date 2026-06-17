@@ -154,14 +154,14 @@ def test_write_frames_creates_file(tmp_path: Path):
 
 
 def test_write_frames_cpu_mode_custom_quality(tmp_path: Path):
-    """write_frames_to_video accepts mode='cpu' with explicit crf/preset."""
+    """write_frames_to_video accepts mode='cpu' with explicit quality/preset."""
     out = tmp_path / "custom.mp4"
     write_frames_to_video(
         out,
         make_simple_frames(n=3, h=16, w=16),
         fps=5.0,
         mode="cpu",
-        crf=23,
+        quality=23,
         preset="ultrafast",
     )
     assert out.is_file()

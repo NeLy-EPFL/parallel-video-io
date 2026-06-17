@@ -10,6 +10,9 @@ the lines-of-code metric.
 
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
+
 import numpy as np
 
 
@@ -20,6 +23,10 @@ class EncodeBackend:
 
     def available(self) -> tuple[bool, str]:
         return True, ""
+
+    def quality_display(self, q: int) -> int:
+        """Quality value to record in results (override if the backend remaps it)."""
+        return q
 
     def encode(self, frames: np.ndarray, fps: int, out_path: str, quality: int) -> None:
         """Encode ``frames`` (N, H, W, 3) uint8 RGB to ``out_path``."""
@@ -35,7 +42,9 @@ class PvioCPUEncode(EncodeBackend):
     def encode(self, frames, fps, out_path, quality) -> None:
         from pvio.io import write_frames_to_video
 
-        write_frames_to_video(out_path, list(frames), fps=fps, mode="cpu", crf=quality)
+        write_frames_to_video(
+            out_path, list(frames), fps=fps, mode="cpu", quality=quality
+        )
 
 
 class PvioGPUEncode(EncodeBackend):
@@ -58,7 +67,9 @@ class PvioGPUEncode(EncodeBackend):
     def encode(self, frames, fps, out_path, quality) -> None:
         from pvio.io import write_frames_to_video
 
-        write_frames_to_video(out_path, list(frames), fps=fps, mode="gpu", qp=quality)
+        write_frames_to_video(
+            out_path, list(frames), fps=fps, mode="gpu", quality=quality
+        )
 
 
 class PyAVEncode(EncodeBackend):
@@ -93,11 +104,19 @@ class PyAVEncode(EncodeBackend):
 
 
 class OpenCVEncode(EncodeBackend):
-    """OpenCV VideoWriter (mp4v). No CRF/QP knob — single operating point."""
+    """OpenCV VideoWriter (MJPEG). Quality is mapped from the CRF scale to JPEG %."""
 
     name = "opencv"
     device = "cpu"
-    tunable = False
+    tunable = True
+
+    @staticmethod
+    def _mjpeg_q(crf: int) -> int:
+        """Map CRF 0-51 (lower=better) to JPEG quality 0-100 (higher=better)."""
+        return max(0, min(100, round(100 * (1 - crf / 51))))
+
+    def quality_display(self, q: int) -> int:
+        return self._mjpeg_q(q)
 
     def available(self) -> tuple[bool, str]:
         try:
@@ -110,13 +129,18 @@ class OpenCVEncode(EncodeBackend):
         import cv2
 
         n, h, w, _ = frames.shape
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        writer = cv2.VideoWriter(out_path, fourcc, fps, (w, h))
+        mjpeg_q = self._mjpeg_q(quality)
+        # MJPEG requires AVI container; write to a sidecar then move.
+        avi_path = str(Path(out_path).with_suffix(".avi"))
+        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        writer = cv2.VideoWriter(avi_path, fourcc, fps, (w, h))
         if not writer.isOpened():
             raise RuntimeError("cv2.VideoWriter failed to open")
+        writer.set(cv2.VIDEOWRITER_PROP_QUALITY, mjpeg_q)
         for i in range(n):
             writer.write(cv2.cvtColor(frames[i], cv2.COLOR_RGB2BGR))
         writer.release()
+        shutil.move(avi_path, out_path)
 
 
 ENCODE_BACKENDS: list[EncodeBackend] = [

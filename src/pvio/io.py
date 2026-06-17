@@ -66,8 +66,7 @@ def write_frames_to_video(
     fps: float,
     *,
     mode: str = "auto",
-    crf: int = _accel.DEFAULT_CRF,
-    qp: int = _accel.DEFAULT_QP,
+    quality: int = _accel.DEFAULT_QUALITY,
     preset: str | None = None,
     extra_ffmpeg_params: list[str] | None = None,
     log_interval: int | None = None,
@@ -80,9 +79,10 @@ def write_frames_to_video(
     the encode always falls back to libx264 if NVENC fails (e.g. frames below
     NVENC's minimum size), so output is always produced.
 
-    Quality is controlled per encoder by *crf* (libx264) and *qp* (NVENC) — both
-    on the 0-51 H.264 quantiser scale where lower means higher quality and larger
-    files. The default of 20 is visually lossless and conservative, suitable for
+    Quality is controlled by the single *quality* knob, applied as libx264's CRF
+    on the CPU path and as NVENC's constant QP on the GPU path — both on the same
+    0-51 H.264 quantiser scale where lower means higher quality and larger files.
+    The default of 20 is visually lossless and conservative, suitable for
     scientific data.
 
     Args:
@@ -94,8 +94,10 @@ def write_frames_to_video(
             ``"gpu"`` forces the NVENC path (falling back to libx264 if NVENC is
             unavailable for the input); ``"cpu"`` forces libx264; ``"auto"``
             picks the GPU when available.
-        crf: libx264 constant-rate-factor quality (used on the CPU path).
-        qp: NVENC constant quantiser quality (used on the GPU path).
+        quality: Encode quality on the 0-51 H.264 quantiser scale (lower = higher
+            quality, larger files). Applied as libx264's CRF or NVENC's QP
+            depending on the chosen encoder, so it behaves consistently across
+            the CPU and GPU paths.
         preset: Encoder preset. ``None`` uses a sensible per-encoder default
             (``"slow"`` for libx264, ``"p7"`` for NVENC). If given, it is passed
             to whichever encoder runs — use encoder-appropriate values
@@ -140,14 +142,14 @@ def write_frames_to_video(
     # is tried first when usable, always with a libx264 fallback so output is
     # produced even if the GPU encode fails. The libx264 fallback uses its own
     # default preset (a user-supplied preset is assumed NVENC-specific in that
-    # case), but applies the requested crf.
+    # case), but applies the requested quality.
     attempts: list[tuple[str, list[str], str | None]] = []
     if nvenc_usable:
         nvenc_preset = preset or _accel.DEFAULT_NVENC_PRESET
         attempts.append(
             (
                 _accel.NVENC_CODEC,
-                _accel.nvenc_params(qp, nvenc_preset) + extra,
+                _accel.nvenc_params(quality, nvenc_preset) + extra,
                 _accel.nvenc_ffmpeg_exe(),
             )
         )
@@ -155,7 +157,11 @@ def write_frames_to_video(
     else:
         libx264_preset = preset or _accel.DEFAULT_LIBX264_PRESET
     attempts.append(
-        (_accel.LIBX264_CODEC, _accel.libx264_params(crf, libx264_preset) + extra, None)
+        (
+            _accel.LIBX264_CODEC,
+            _accel.libx264_params(quality, libx264_preset) + extra,
+            None,
+        )
     )
 
     last_error: Exception | None = None

@@ -40,11 +40,17 @@ frames = [np.full((32, 32, 3), fill_value=i, dtype=np.uint8) for i in range(10)]
 
 write_frames_to_video("example.mp4", frames, fps=25.0)
 
-# Override encoding quality — lower CRF = higher quality, larger file.
-# Default is CRF 20 (conservative vs FFmpeg's 23); use 18 for lossless-like output.
+# Override encoding quality — lower value = higher quality, larger file.
+# `quality` is on the 0–51 H.264 scale and applies to both the CPU (libx264 CRF)
+# and GPU (NVENC QP) paths. Default is 20 (conservative vs FFmpeg's 23); use 18
+# for near-lossless output.
+write_frames_to_video("example_hq.mp4", frames, fps=25.0, quality=18)
+
+# Force the CPU encoder, or pass raw FFmpeg flags as an escape hatch.
 write_frames_to_video(
-    "example_hq.mp4", frames, fps=25.0,
-    ffmpeg_params=["-crf", "18", "-preset", "slow", "-profile:v", "high", "-level", "4.0"],
+    "example_cpu.mp4", frames, fps=25.0,
+    mode="cpu", preset="slow",
+    extra_ffmpeg_params=["-level", "4.0"],
 )
 ```
 

@@ -302,3 +302,9 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/python,linux,macos,windows,git,vim,visualstudiocode
+
+# Benchmark: synthetic test videos and raw results (SUMMARY.md is kept)
+benchmark/data/
+benchmark/results/results.csv
+benchmark/results/environment.json
+benchmark/results/figures/

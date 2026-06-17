@@ -24,6 +24,9 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
 
+hooks:
+  - docs/gen_benchmark.py
+
 plugins:
   - search
   - mkdocstrings:
@@ -60,3 +63,4 @@ nav:
     - pvio.video: api/video.md
     - pvio.torch_tools: api/torch_tools.md
   - Developer Info: developer.md
+  - Benchmarks: benchmark.md

@@ -83,7 +83,7 @@ DEFAULT_QUALITY = _env_int("QUALITY", 20)
 
 
 def quality_sweep() -> list[int]:
-    raw = _env("QUALITY_SWEEP", "16,20,24,28,34")
+    raw = _env("QUALITY_SWEEP", "17,19,21,23,25")
     return [int(x) for x in raw.split(",") if x.strip()]
 
 

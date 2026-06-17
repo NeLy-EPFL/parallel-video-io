@@ -20,7 +20,7 @@ from __future__ import annotations
 import argparse
 import os
 
-ALL_TASKS = ("encode", "random", "sequential", "loc")
+ALL_TASKS = ("encode", "random", "sequential")
 
 
 def _apply_quick_defaults() -> None:
@@ -30,7 +30,7 @@ def _apply_quick_defaults() -> None:
         "PVIO_BENCH_ENCODE_NFRAMES": "120",
         "PVIO_BENCH_N_REPEATS": "1",
         "PVIO_BENCH_N_RANDOM_READS": "50",
-        "PVIO_BENCH_QUALITY_SWEEP": "16,20,28,34",
+        "PVIO_BENCH_QUALITY_SWEEP": "17,21,25",
     }
     for k, v in defaults.items():
         os.environ.setdefault(k, v)
@@ -100,12 +100,6 @@ def _write_summary(df, path) -> None:
             "Sequential access (frames/s, higher better)",
             _render_md_table(p.reset_index()),
         )
-    if (s := df[df["task"] == "loc"]).shape[0]:
-        p = s.pivot_table(index="workload", columns="backend", values="metric_main")
-        section(
-            "Lines of user code (SLOC, lower better)", _render_md_table(p.reset_index())
-        )
-
     errs = df[df["error"].notna()]
     if errs.shape[0]:
         cols = ["task", "backend", "workload", "error"]
@@ -149,12 +143,6 @@ def main() -> None:
 
         print("== sequential ==")
         results += bench_sequential.run()
-    if "loc" in args.only:
-        from . import loc
-
-        print("== loc ==")
-        results += loc.run()
-
     df = pd.DataFrame([r.flat() for r in results])
     csv_path = config.RESULTS_DIR / "results.csv"
     df.to_csv(csv_path, index=False)

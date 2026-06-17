@@ -21,27 +21,29 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
-# Encoder names and default quality knobs. CRF (libx264) and QP (NVENC
-# constant-QP) share the 0-51 H.264 quantiser scale: lower = higher quality and
-# larger files. 20 is conservative vs FFmpeg's default of 23, appropriate for
-# scientific data where quality loss should be minimal.
+# Encoder names and the default quality knob. A single ``quality`` value drives
+# both encoders: it is passed as libx264's CRF and as NVENC's constant QP, which
+# share the 0-51 H.264 quantiser scale (lower = higher quality and larger files).
+# 20 is conservative vs FFmpeg's default of 23, appropriate for scientific data
+# where quality loss should be minimal.
 NVENC_CODEC = "h264_nvenc"
 LIBX264_CODEC = "libx264"
 
-DEFAULT_CRF = 20
-DEFAULT_QP = 20
+DEFAULT_QUALITY = 20
 DEFAULT_LIBX264_PRESET = "slow"  # better compression efficiency
 DEFAULT_NVENC_PRESET = "p7"  # slowest / highest quality NVENC preset
 
 
 def libx264_params(
-    crf: int = DEFAULT_CRF, preset: str = DEFAULT_LIBX264_PRESET
+    quality: int = DEFAULT_QUALITY, preset: str = DEFAULT_LIBX264_PRESET
 ) -> list[str]:
     """FFmpeg parameters for CPU H.264 (libx264) at the given CRF and preset."""
-    return ["-crf", str(crf), "-preset", preset, "-profile:v", "high"]
+    return ["-crf", str(quality), "-preset", preset, "-profile:v", "high"]
 
 
-def nvenc_params(qp: int = DEFAULT_QP, preset: str = DEFAULT_NVENC_PRESET) -> list[str]:
+def nvenc_params(
+    quality: int = DEFAULT_QUALITY, preset: str = DEFAULT_NVENC_PRESET
+) -> list[str]:
     """FFmpeg parameters for GPU H.264 (NVENC) at the given constant QP and preset.
 
     Note: no ``-pix_fmt`` here — imageio adds ``-pix_fmt yuv420p`` itself, and
@@ -55,7 +57,7 @@ def nvenc_params(qp: int = DEFAULT_QP, preset: str = DEFAULT_NVENC_PRESET) -> li
         "-rc",
         "constqp",  # constant quantiser — predictable, like CRF
         "-qp",
-        str(qp),
+        str(quality),
         "-profile:v",
         "high",
     ]
