@@ -21,41 +21,45 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
-# Default H.264 NVENC parameters tuned for *visually lossless* output, broadly
-# comparable to libx264 ``-crf 20`` (see benchmark write results). ``-qp 19``
-# under constant-QP rate control with the highest-quality preset/tuning gives
-# PSNR ~41 dB on structured content. NVENC is not bit-exact and its files are
-# somewhat larger than libx264 at matched quality; that trade-off is the price
-# of GPU encode speed and is surfaced by the benchmark compression-ratio metric.
-# Note: no ``-pix_fmt`` here — imageio adds ``-pix_fmt yuv420p`` itself, and
-# duplicating it makes FFmpeg error out.
+# Encoder names and default quality knobs. CRF (libx264) and QP (NVENC
+# constant-QP) share the 0-51 H.264 quantiser scale: lower = higher quality and
+# larger files. 20 is conservative vs FFmpeg's default of 23, appropriate for
+# scientific data where quality loss should be minimal.
 NVENC_CODEC = "h264_nvenc"
-NVENC_PARAMS: list[str] = [
-    "-preset",
-    "p7",  # slowest / highest quality NVENC preset
-    "-tune",
-    "hq",  # high-quality tuning
-    "-rc",
-    "constqp",  # constant quantiser — predictable, like CRF
-    "-qp",
-    "19",  # ~visually lossless; comparable to libx264 CRF 20
-    "-profile:v",
-    "high",
-]
-
-# Default libx264 parameters (CPU fallback / explicit path). Mirrors the values
-# previously hard-coded in ``write_frames_to_video``.
 LIBX264_CODEC = "libx264"
-LIBX264_PARAMS: list[str] = [
-    "-crf",
-    "20",  # Lower = higher quality; 20 is conservative vs FFmpeg's default 23
-    "-preset",
-    "slow",  # Slower preset = better compression efficiency
-    "-profile:v",
-    "high",  # Use high profile for better compression
-    "-level",
-    "4.0",  # H.264 level
-]
+
+DEFAULT_CRF = 20
+DEFAULT_QP = 20
+DEFAULT_LIBX264_PRESET = "slow"  # better compression efficiency
+DEFAULT_NVENC_PRESET = "p7"  # slowest / highest quality NVENC preset
+
+
+def libx264_params(
+    crf: int = DEFAULT_CRF, preset: str = DEFAULT_LIBX264_PRESET
+) -> list[str]:
+    """FFmpeg parameters for CPU H.264 (libx264) at the given CRF and preset."""
+    return ["-crf", str(crf), "-preset", preset, "-profile:v", "high"]
+
+
+def nvenc_params(qp: int = DEFAULT_QP, preset: str = DEFAULT_NVENC_PRESET) -> list[str]:
+    """FFmpeg parameters for GPU H.264 (NVENC) at the given constant QP and preset.
+
+    Note: no ``-pix_fmt`` here — imageio adds ``-pix_fmt yuv420p`` itself, and
+    duplicating it makes FFmpeg error out.
+    """
+    return [
+        "-preset",
+        preset,
+        "-tune",
+        "hq",  # high-quality tuning
+        "-rc",
+        "constqp",  # constant quantiser — predictable, like CRF
+        "-qp",
+        str(qp),
+        "-profile:v",
+        "high",
+    ]
+
 
 # NVENC refuses to initialise below a hardware-dependent minimum frame size
 # (empirically ~145 px wide on consumer NVENC). Frames smaller than this in

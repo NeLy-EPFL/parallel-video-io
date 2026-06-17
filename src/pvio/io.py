@@ -64,43 +64,54 @@ def write_frames_to_video(
     video_path: Path | str,
     frames: list[np.ndarray],
     fps: float,
-    codec: str | None = None,
-    ffmpeg_params: list[str] | None = None,
+    *,
+    mode: str = "auto",
+    crf: int = _accel.DEFAULT_CRF,
+    qp: int = _accel.DEFAULT_QP,
+    preset: str | None = None,
+    extra_ffmpeg_params: list[str] | None = None,
     log_interval: int | None = None,
 ) -> None:
-    """Write a sequence of frames to a video file.
+    """Write a sequence of frames to an H.264 MP4 file.
 
-    By default the codec is chosen automatically: on a machine with a CUDA GPU
-    and an NVENC-capable FFmpeg, frames are encoded with the GPU (H.264 NVENC at
-    a visually-lossless setting, comparable to libx264 CRF 20); otherwise they
-    fall back to libx264 on the CPU. The auto path also falls back to libx264 if
-    an NVENC encode fails for any reason (e.g. frames below NVENC's minimum
-    size), so output is always produced.
+    The encoder is chosen by *mode*: ``"gpu"`` encodes on the GPU (H.264 NVENC),
+    ``"cpu"`` on the CPU (libx264), and ``"auto"`` (default) uses the GPU when a
+    CUDA device and NVENC-capable FFmpeg are available, else the CPU. Either way
+    the encode always falls back to libx264 if NVENC fails (e.g. frames below
+    NVENC's minimum size), so output is always produced.
+
+    Quality is controlled per encoder by *crf* (libx264) and *qp* (NVENC) — both
+    on the 0-51 H.264 quantiser scale where lower means higher quality and larger
+    files. The default of 20 is visually lossless and conservative, suitable for
+    scientific data.
 
     Args:
         video_path: Path for the output video file.
         frames: Frames as uint8 numpy arrays in ``(H, W, C)`` format. All
             frames must share the same spatial dimensions.
         fps: Frames per second of the output video.
-        codec: FFmpeg codec name. If ``None`` (default), the codec is selected
-            automatically (NVENC on GPU, else libx264). Pass an explicit codec
-            (e.g. ``"libx264"``, ``"h264_nvenc"``) to override auto-selection.
-        ffmpeg_params: Raw FFmpeg parameter list. When ``None`` the parameters
-            matching the selected codec are used (CRF 20 / slow / high profile
-            for libx264; visually-lossless constant-QP for NVENC). Passing this
-            explicitly while leaving *codec* as ``None`` keeps the libx264
-            defaults (GPU auto-selection is disabled, since custom parameters
-            are codec-specific). CRF 20 is more conservative than FFmpeg's
-            default of 23, appropriate for scientific data where quality loss
-            should be minimal; lower values produce higher quality at the cost
-            of larger files.
+        mode: Encoder selection — ``"auto"`` (default), ``"gpu"``, or ``"cpu"``.
+            ``"gpu"`` forces the NVENC path (falling back to libx264 if NVENC is
+            unavailable for the input); ``"cpu"`` forces libx264; ``"auto"``
+            picks the GPU when available.
+        crf: libx264 constant-rate-factor quality (used on the CPU path).
+        qp: NVENC constant quantiser quality (used on the GPU path).
+        preset: Encoder preset. ``None`` uses a sensible per-encoder default
+            (``"slow"`` for libx264, ``"p7"`` for NVENC). If given, it is passed
+            to whichever encoder runs — use encoder-appropriate values
+            (libx264: ``ultrafast``…``placebo``; NVENC: ``p1``…``p7``).
+        extra_ffmpeg_params: Optional raw FFmpeg parameters appended after the
+            quality/preset flags, as an escape hatch for advanced options.
         log_interval: If set, log progress every *log_interval* frames at
             ``INFO`` level.
 
     Raises:
-        ValueError: If *frames* is empty or contains frames with mismatched
-            dimensions.
+        ValueError: If *frames* is empty, contains frames with mismatched
+            dimensions, or *mode* is not one of ``"auto"``/``"gpu"``/``"cpu"``.
     """
+    if mode not in ("auto", "gpu", "cpu"):
+        raise ValueError(f"mode must be 'auto', 'gpu', or 'cpu', got {mode!r}.")
+
     # Check frame size consistency
     if len(frames) == 0:
         raise ValueError("No frames provided to write_frames_to_video")
@@ -112,35 +123,40 @@ def write_frames_to_video(
                 f"{frame_size}, but at least one frame has size {frame.shape[:2]}."
             )
     height, width = frame_size[0], frame_size[1]
+    extra = list(extra_ffmpeg_params or [])
 
-    # Resolve the encode plan as a list of (codec, params, ffmpeg_exe) attempts.
-    # The auto path tries NVENC first (when usable) and always keeps a libx264
-    # fallback so output is produced even if the GPU encode fails.
+    # Decide whether to attempt NVENC. "auto" detects a usable GPU; "gpu" forces
+    # it when the input/host allow; "cpu" stays on libx264.
+    want_gpu = _accel.cuda_available() if mode == "auto" else (mode == "gpu")
+    nvenc_usable = want_gpu and _accel.can_use_nvenc(height, width)
+    if mode == "gpu" and not nvenc_usable:
+        logger.warning(
+            "mode='gpu' requested, but NVENC is unavailable for this input "
+            "(no CUDA device / NVENC-capable FFmpeg, or frame too small); "
+            "encoding with libx264 on the CPU instead."
+        )
+
+    # Build the ordered list of (codec, params, ffmpeg_exe) encode attempts. NVENC
+    # is tried first when usable, always with a libx264 fallback so output is
+    # produced even if the GPU encode fails. The libx264 fallback uses its own
+    # default preset (a user-supplied preset is assumed NVENC-specific in that
+    # case), but applies the requested crf.
     attempts: list[tuple[str, list[str], str | None]] = []
-    if codec is not None:
-        # Explicit codec: honour it verbatim, no auto-selection or fallback. Pick
-        # codec-appropriate default params, and route NVENC codecs to an
-        # NVENC-capable FFmpeg (the bundled imageio binary usually lacks it).
-        is_nvenc = "nvenc" in codec
-        if ffmpeg_params is not None:
-            params = ffmpeg_params
-        elif is_nvenc:
-            params = _accel.NVENC_PARAMS
-        else:
-            params = _accel.LIBX264_PARAMS
-        exe = _accel.nvenc_ffmpeg_exe(codec) if is_nvenc else None
-        attempts.append((codec, params, exe))
-    elif ffmpeg_params is not None:
-        # Custom params but no codec: parameters are codec-specific, so stay on
-        # the libx264 default rather than silently switching to NVENC.
-        attempts.append((_accel.LIBX264_CODEC, ffmpeg_params, None))
-    else:
-        # Pure auto: NVENC when available, with a libx264 fallback.
-        if _accel.can_use_nvenc(height, width):
-            attempts.append(
-                (_accel.NVENC_CODEC, _accel.NVENC_PARAMS, _accel.nvenc_ffmpeg_exe())
+    if nvenc_usable:
+        nvenc_preset = preset or _accel.DEFAULT_NVENC_PRESET
+        attempts.append(
+            (
+                _accel.NVENC_CODEC,
+                _accel.nvenc_params(qp, nvenc_preset) + extra,
+                _accel.nvenc_ffmpeg_exe(),
             )
-        attempts.append((_accel.LIBX264_CODEC, _accel.LIBX264_PARAMS, None))
+        )
+        libx264_preset = _accel.DEFAULT_LIBX264_PRESET
+    else:
+        libx264_preset = preset or _accel.DEFAULT_LIBX264_PRESET
+    attempts.append(
+        (_accel.LIBX264_CODEC, _accel.libx264_params(crf, libx264_preset) + extra, None)
+    )
 
     last_error: Exception | None = None
     for attempt_idx, (attempt_codec, attempt_params, ffmpeg_exe) in enumerate(attempts):

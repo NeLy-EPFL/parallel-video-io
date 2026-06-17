@@ -18,7 +18,7 @@ the GPU (TorchCodec/NVDEC, with frame-accurate seeking preserved) and writing
 uses the GPU encoder (FFmpeg/NVENC at a visually-lossless setting); both fall
 back to the CPU when no GPU is available. `SimpleVideoCollectionLoader` runs in
 the main process when decoding on the GPU (CUDA cannot be used in forked
-workers). Pass `device="cpu"` (loader/`EncodedVideo`) or an explicit `codec=`
+workers). Pass `device="cpu"` (loader/`EncodedVideo`) or `mode="cpu"`
 (`write_frames_to_video`) to opt out.
 
 **Linux only.** macOS and Windows are not currently supported.

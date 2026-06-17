@@ -153,17 +153,26 @@ def test_write_frames_creates_file(tmp_path: Path):
     assert out.stat().st_size > 0
 
 
-def test_write_frames_custom_codec(tmp_path: Path):
-    """write_frames_to_video accepts custom codec and ffmpeg_params."""
+def test_write_frames_cpu_mode_custom_quality(tmp_path: Path):
+    """write_frames_to_video accepts mode='cpu' with explicit crf/preset."""
     out = tmp_path / "custom.mp4"
     write_frames_to_video(
         out,
         make_simple_frames(n=3, h=16, w=16),
         fps=5.0,
-        codec="libx264",
-        ffmpeg_params=["-crf", "23", "-preset", "ultrafast"],
+        mode="cpu",
+        crf=23,
+        preset="ultrafast",
     )
     assert out.is_file()
+
+
+def test_write_frames_invalid_mode_raises(tmp_path: Path):
+    """An unknown mode is rejected."""
+    with pytest.raises(ValueError):
+        write_frames_to_video(
+            tmp_path / "x.mp4", make_simple_frames(n=2, h=16, w=16), fps=5.0, mode="tpu"
+        )
 
 
 def test_get_video_metadata_cache_bypass(tmp_path: Path):
