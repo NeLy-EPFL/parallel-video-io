@@ -118,9 +118,18 @@ def write_frames_to_video(
     # fallback so output is produced even if the GPU encode fails.
     attempts: list[tuple[str, list[str], str | None]] = []
     if codec is not None:
-        # Explicit codec: honour it verbatim, no auto-selection or fallback.
-        params = ffmpeg_params if ffmpeg_params is not None else _accel.LIBX264_PARAMS
-        attempts.append((codec, params, None))
+        # Explicit codec: honour it verbatim, no auto-selection or fallback. Pick
+        # codec-appropriate default params, and route NVENC codecs to an
+        # NVENC-capable FFmpeg (the bundled imageio binary usually lacks it).
+        is_nvenc = "nvenc" in codec
+        if ffmpeg_params is not None:
+            params = ffmpeg_params
+        elif is_nvenc:
+            params = _accel.NVENC_PARAMS
+        else:
+            params = _accel.LIBX264_PARAMS
+        exe = _accel.nvenc_ffmpeg_exe(codec) if is_nvenc else None
+        attempts.append((codec, params, exe))
     elif ffmpeg_params is not None:
         # Custom params but no codec: parameters are codec-specific, so stay on
         # the libx264 default rather than silently switching to NVENC.
