@@ -289,6 +289,28 @@ def test_small_video_worker_reduction(tmp_path: Path):
     assert total_frames == 5
 
 
+def test_post_setup_failure_propagates():
+    """A backend that raises in _post_setup surfaces the error from setup()."""
+    from pvio.video import Video
+
+    class FailingPostSetup(Video):
+        def _validate_init_params(self):
+            pass
+
+        def _load_metadata(self):
+            return 3, (4, 5), 30.0
+
+        def _read_frame(self, index, transform=None):
+            raise NotImplementedError
+
+        def _post_setup(self):
+            raise RuntimeError("post-setup boom")
+
+    video = FailingPostSetup(path="/fake/path.mp4")
+    with pytest.raises(RuntimeError, match="post-setup boom"):
+        video.setup()
+
+
 def test_dataset_iter_without_assign_workers_raises(tmp_path: Path):
     """Bug 8: iterating VideoCollectionDataset without calling assign_workers (or using
     VideoCollectionDataLoader) must raise a clear, user-facing error."""

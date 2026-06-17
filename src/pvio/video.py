@@ -5,7 +5,7 @@ import imageio.v2 as imageio
 import numpy as np
 from abc import abstractmethod, ABC
 from time import time
-from typing import Any, Callable
+from typing import Callable
 from torchcodec.decoders import VideoDecoder
 from torch.utils.data import get_worker_info
 from pathlib import Path
@@ -108,19 +108,16 @@ class Video(ABC):
             )
             return (0, n_frames_source_video)
 
-    def setup(self, *args: Any, **kwargs: Any) -> None:
+    def setup(self) -> None:
         """Validate arguments, load metadata, and prepare this video for reading.
 
         Must be called after ``__init__`` and before reading frames. Calling
         :meth:`read_frame` without a prior ``setup`` triggers an automatic
         setup with a warning.
 
-        Args:
-            *args: Forwarded to :meth:`_post_setup`.
-            **kwargs: Forwarded to :meth:`_post_setup`.
-
         Raises:
-            RuntimeError: If :meth:`_post_setup` reports failure.
+            Exception: Whatever the backend's :meth:`_validate_init_params`,
+                :meth:`_load_metadata`, or :meth:`_post_setup` raises on failure.
         """
         if self.__setup_done:
             logger.warning(
@@ -145,13 +142,8 @@ class Video(ABC):
         self.frame_range_effective = resolved_range
         self.n_frames_in_range = resolved_range[1] - resolved_range[0]
 
-        # Post-setup hook for backend subclasses
-        post_setup_success = self._post_setup(*args, **kwargs)
-        if not post_setup_success:
-            raise RuntimeError(
-                f"Backend subclass {self.__class__.__name__} failed to complete "
-                f"post-setup operations (`._post_setup()`)."
-            )
+        # Post-setup hook for backend subclasses; raises on failure.
+        self._post_setup()
 
         self.__setup_done = True
 
@@ -205,10 +197,11 @@ class Video(ABC):
         pass
 
     # THE FOLLOWING METHODS CAN BE **OPTIONALLY** IMPLEMENTED BY BACKEND SUBCLASSES
-    def _post_setup(self, *args: Any, **kwargs: Any) -> bool:
-        """Optional backend-specific logic to be called at the end of `.setup()`.
-        Should return True if setup is successful, False otherwise."""
-        return True
+    def _post_setup(self) -> None:
+        """Optional backend-specific logic run at the end of `.setup()`.
+
+        Raise on failure; the default is a no-op."""
+        return
 
     def close(self) -> None:
         """Release any resources held by this Video object."""
@@ -474,7 +467,7 @@ class ImageDirVideo(Video):
                 f"A directory containing individual frame images is expected."
             )
 
-    def _post_setup(self, *args: Any, **kwargs: Any) -> bool:
+    def _post_setup(self) -> None:
         """Build the virtual/physical frame-id ↔ path mappings.
         Called after frame_range_effective is resolved so the mapping can be
         restricted to the requested range.
@@ -511,8 +504,6 @@ class ImageDirVideo(Video):
                     self.vir_frame_id_to_path[vir_frame_id] = img_path
                     self.frame_id_vir2phy[vir_frame_id] = phy_frame_id
                     self.frame_id_phy2vir[phy_frame_id] = vir_frame_id
-
-        return True  # mark success
 
     def _load_metadata(self) -> tuple[int, tuple[int, int], float]:
         all_files = [f for f in self.path.iterdir() if f.is_file()]
