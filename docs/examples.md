@@ -1,7 +1,7 @@
 # Examples
 
-The IO examples below use NumPy arrays with shape `(height, width, channels)` and
-`uint8` dtype.
+The IO examples below (except PyTorch examples) use NumPy arrays with shape
+`(height, width, channels)` and `uint8` dtype.
 
 ## Reading video metadata
 
