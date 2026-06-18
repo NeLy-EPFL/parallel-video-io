@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://nely-epfl.github.io/parallel-video-io/installation/">
+        <link rel="canonical" href="https://nely-epfl.github.io/parallel-video-io/cli/">
       
       
-        <link rel="prev" href="..">
+        <link rel="prev" href="../examples/">
       
       
-        <link rel="next" href="../examples/">
+        <link rel="next" href="../api/io/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Installation - Parallel Video IO</title>
+        <title>Command-line interface - Parallel Video IO</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#installation" class="md-skip">
+        <a href="#command-line-interface" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Installation
+              Command-line interface
             
           </span>
         </div>
@@ -286,37 +286,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -332,59 +305,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#install-with-pip" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install with pip
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#install-by-specifying-parallel-video-io-as-dependency" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install by specifying parallel-video-io as dependency
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#for-developers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        For developers
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -420,10 +340,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../cli/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command-line interface
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -439,6 +386,48 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#pvio-encode-combine-image-files-into-a-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pvio encode — combine image files into a video
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pvio-info-inspect-a-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pvio info — inspect a video
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -662,10 +651,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#install-with-pip" class="md-nav__link">
+  <a href="#pvio-encode-combine-image-files-into-a-video" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Install with pip
+        pvio encode — combine image files into a video
       
     </span>
   </a>
@@ -673,21 +662,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#install-by-specifying-parallel-video-io-as-dependency" class="md-nav__link">
+  <a href="#pvio-info-inspect-a-video" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Install by specifying parallel-video-io as dependency
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#for-developers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        For developers
+        pvio info — inspect a video
       
     </span>
   </a>
@@ -714,30 +692,100 @@
   
 
 
-<h1 id="installation">Installation</h1>
+<h1 id="command-line-interface">Command-line interface</h1>
+<p>Installing the package puts a small <code>pvio</code> command on your <code>PATH</code> — a lightweight
+ffmpeg helper for the two most common tasks. Run <code>pvio --help</code>, <code>pvio encode --help</code>,
+or <code>pvio info --help</code> for the full set of options.</p>
+<h2 id="pvio-encode-combine-image-files-into-a-video"><code>pvio encode</code> — combine image files into a video</h2>
+<p>Combine a directory (or an explicit list) of image files into an H.264 MP4. GPU
+(NVENC) encoding is used automatically when available, falling back to the CPU
+(libx264).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Encode every image in a directory (natural-sorted: frame2 before frame10)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pvio<span class="w"> </span>encode<span class="w"> </span>frames/<span class="w"> </span>--output<span class="w"> </span>out.mp4<span class="w"> </span>--fps<span class="w"> </span><span class="m">30</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Encode an explicit, already-ordered list of files from a text file</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>pvio<span class="w"> </span>encode<span class="w"> </span>--from-file<span class="w"> </span>frame_paths.txt<span class="w"> </span>--output<span class="w"> </span>out.mp4<span class="w"> </span>--no-sort
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Force the CPU encoder at a near-lossless quality</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>pvio<span class="w"> </span>encode<span class="w"> </span>frames/<span class="w"> </span>--output<span class="w"> </span>out.mp4<span class="w"> </span>--mode<span class="w"> </span>cpu<span class="w"> </span>--quality<span class="w"> </span><span class="m">18</span><span class="w"> </span>--preset<span class="w"> </span>slow
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Force the GPU encoder (NVENC presets are p1…p7)</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>pvio<span class="w"> </span>encode<span class="w"> </span>frames/<span class="w"> </span>--output<span class="w"> </span>out.mp4<span class="w"> </span>--mode<span class="w"> </span>gpu<span class="w"> </span>--preset<span class="w"> </span>p7
+</code></pre></div>
+<p>Key options:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Alias</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--output</code></td>
+<td><code>-o</code></td>
+<td>Output <code>.mp4</code> path (required). Parent directories are created.</td>
+</tr>
+<tr>
+<td><code>--fps</code></td>
+<td><code>-fps</code></td>
+<td>Frames per second (default: 30).</td>
+</tr>
+<tr>
+<td><code>--mode</code></td>
+<td><code>-m</code></td>
+<td><code>auto</code> (default), <code>gpu</code>, or <code>cpu</code>.</td>
+</tr>
+<tr>
+<td><code>--quality</code></td>
+<td><code>-qa</code></td>
+<td>0–51 H.264 quantiser scale, lower = higher quality (default: 20).</td>
+</tr>
+<tr>
+<td><code>--preset</code></td>
+<td><code>-p</code></td>
+<td>Encoder preset — see the note below.</td>
+</tr>
+<tr>
+<td><code>--sort</code> / <code>--no-sort</code></td>
+<td><code>-s</code> / <code>--no-s</code></td>
+<td>Natural numeric-aware ordering (on by default).</td>
+</tr>
+<tr>
+<td><code>--from-file</code></td>
+<td><code>-f</code></td>
+<td>Text file with one image path per line (alternative to a directory).</td>
+</tr>
+<tr>
+<td><code>--quiet</code> / <code>--no-quiet</code></td>
+<td><code>-q</code> / <code>--no-q</code></td>
+<td>Suppress encoder parameters, progress bar, and compression-ratio summary.</td>
+</tr>
+</tbody>
+</table>
 <div class="admonition warning">
-<p class="admonition-title">Linux only</p>
-<p>This package is currently tested on Linux only.</p>
+<p class="admonition-title">Presets are encoder-specific</p>
+<p><code>--preset</code> must match the encoder that <code>--mode</code> selects: <strong>libx264</strong>
+(<code>ultrafast</code>…<code>placebo</code>) for <code>cpu</code>, and <strong>NVENC</strong> (<code>p1</code>…<code>p7</code>) for <code>gpu</code>.
+For libx264, faster presets encode more quickly but compress less efficiently.
+For NVENC, <strong>lower numbers are faster but lower quality</strong> (<code>p1</code> = fastest,
+<code>p7</code> = slowest / best quality). With an explicit <code>--mode</code>, a mismatched preset
+is a hard error; with <code>--mode auto</code>, the encoder is resolved best-effort and a
+mismatch is only a warning. Omit <code>--preset</code> to use a sensible per-encoder
+default (libx264 <code>slow</code>, NVENC <code>p7</code>).</p>
 </div>
-<h2 id="install-with-pip">Install with <code>pip</code></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>parallel-video-io
+<h2 id="pvio-info-inspect-a-video"><code>pvio info</code> — inspect a video</h2>
+<p>Print a video's frame count, frame size, and FPS:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pvio<span class="w"> </span>info<span class="w"> </span>example.mp4
 </code></pre></div>
-<h2 id="install-by-specifying-parallel-video-io-as-dependency">Install by specifying <code>parallel-video-io</code> as dependency</h2>
-<p>Add <code>parallel-video-io</code> to you <code>pyproject.toml</code> file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[project]</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p">...</span><span class="w">  </span><span class="c1"># other stuff</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="err">...  # other stuff</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="s2">&quot;parallel-video-io&gt;=0.1.6&quot;</span><span class="err">,</span><span class="w">  </span><span class="c1"># change version requirement accordingly</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="err">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>path:       example.mp4
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>frames:     240
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>frame_size: 1920x1080 (width x height)
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>fps:        30
 </code></pre></div>
-<h2 id="for-developers">For developers</h2>
-<p>Clone the repository and install it with <a href="https://docs.astral.sh/uv/">uv</a>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:sibocw/parallel-video-io.git
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">cd</span><span class="w"> </span>parallel-video-io
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>sync<span class="w">  </span><span class="c1"># developers should run `uv sync --extra dev`</span>
-</code></pre></div>
-<p>Make sure <code>ffmpeg</code> is available on your <code>$PATH</code> (required by imageio-ffmpeg). On Debian/Ubuntu, this can be done with <code>sudo apt-get install ffmpeg</code>.</p>
+<p>Pass <code>--no-cache</code> to force a fresh read instead of using (or writing) the sidecar
+metadata cache.</p>
 
 
 

@@ -1,0 +1,1458 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://nely-epfl.github.io/parallel-video-io/benchmark/">
+      
+      
+        <link rel="prev" href="../api/torch_tools/">
+      
+      
+        <link rel="next" href="../developer/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Benchmarks - Parallel Video IO</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#benchmarks" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Parallel Video IO" class="md-header__button md-logo" aria-label="Parallel Video IO" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Parallel Video IO
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Benchmarks
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/NeLy-EPFL/parallel-video-io" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NeLy-EPFL/parallel-video-io
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Parallel Video IO" class="md-nav__button md-logo" aria-label="Parallel Video IO" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Parallel Video IO
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/NeLy-EPFL/parallel-video-io" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NeLy-EPFL/parallel-video-io
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command-line interface
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pvio.io
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pvio.video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/torch_tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pvio.torch_tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#encode-throughput-and-compression-ratio-vs-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encode throughput and compression ratio vs quality
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encode-at-matched-image-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encode at matched image quality
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decode-throughput" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decode throughput
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-result-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark result tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Info
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#encode-throughput-and-compression-ratio-vs-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encode throughput and compression ratio vs quality
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encode-at-matched-image-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encode at matched image quality
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decode-throughput" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decode throughput
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-result-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark result tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="benchmarks">Benchmarks</h1>
+<p>PVIO is benchmarked against PyAV, OpenCV, Decord, TorchCodec, and NVIDIA DALI
+across three tasks. Results below are generated by
+<a href="https://github.com/NeLy-EPFL/parallel-video-io/blob/main/benchmark/run_all.py"><code>benchmark/run_all.py</code></a>
+and embedded here automatically at docs-build time. To regenerate locally:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>benchmark.run_all
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mkdocs<span class="w"> </span>gh-deploy
+</code></pre></div>
+<p>See <a href="https://github.com/NeLy-EPFL/parallel-video-io/blob/main/benchmark/README.md"><code>benchmark/README.md</code></a>
+for full methodology, metric definitions, and backend notes.</p>
+<h2 id="encode-throughput-and-compression-ratio-vs-quality">Encode throughput and compression ratio vs quality</h2>
+<div style="height:1400px; width:100%;">                        <script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-3.6.0.min.js" integrity="sha256-QaOVwtVY0T02VaHrr6pnoHLCwayMJp4O5n4YyaE3rJk=" crossorigin="anonymous"></script>                <div id="211823f2-7ece-44c2-af46-e46b17745970" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("211823f2-7ece-44c2-af46-e46b17745970")) {                    Plotly.newPlot(                        "211823f2-7ece-44c2-af46-e46b17745970",                        [{"customdata":[[25,"Encoding SD (848\u00d7480)"],[23,"Encoding SD (848\u00d7480)"],[21,"Encoding SD (848\u00d7480)"],[19,"Encoding SD (848\u00d7480)"],[17,"Encoding SD (848\u00d7480)"]],"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: CRF=%{customdata[0]}\u003cbr\u003eThroughput: %{y:.0f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","line":{"color":"#0c2e6e"},"marker":{"color":"#0c2e6e"},"mode":"lines+markers","name":"PVIO (CPU)","showlegend":true,"x":{"dtype":"f8","bdata":"FK5H4Xr0QEAK16NwPSpBQClcj8L1aEFAhetRuB6FQUAfhetRuL5BQA=="},"y":{"dtype":"f8","bdata":"ovYzJag3ckAz3OvVWKloQIicx0W2GWJAYwrFF6lkWkCs4URiEIBUQA=="},"type":"scatter","xaxis":"x","yaxis":"y"},{"customdata":[[25,"Encoding SD (848\u00d7480)"],[23,"Encoding SD (848\u00d7480)"],[21,"Encoding SD (848\u00d7480)"],[19,"Encoding SD (848\u00d7480)"],[17,"Encoding SD (848\u00d7480)"]],"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: CRF=%{customdata[0]}\u003cbr\u003eCompression ratio: %{y:.1f}\u00d7\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","line":{"color":"#0c2e6e"},"marker":{"color":"#0c2e6e"},"mode":"lines+markers","name":"PVIO (CPU)","showlegend":false,"x":{"dtype":"f8","bdata":"FK5H4Xr0QEAK16NwPSpBQClcj8L1aEFAhetRuB6FQUAfhetRuL5BQA=="},"y":{"dtype":"f8","bdata":"MzMzMzNzSEBmZmZmZuY0QJqZmZmZmSRAZmZmZmZmEkDNzMzMzMwAQA=="},"type":"scatter","xaxis":"x2","yaxis":"y2"},{"customdata":[[25,"Encoding SD (848\u00d7480)"],[23,"Encoding SD (848\u00d7480)"],[21,"Encoding SD (848\u00d7480)"],[19,"Encoding SD (848\u00d7480)"],[17,"Encoding SD (848\u00d7480)"]],"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: QP=%{customdata[0]}\u003cbr\u003eThroughput: %{y:.0f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","line":{"color":"#7a0042"},"marker":{"color":"#7a0042"},"mode":"lines+markers","name":"PVIO (GPU)","showlegend":true,"x":{"dtype":"f8","bdata":"mpmZmZkZQUAzMzMzMzNBQOF6FK5HYUFA16NwPQqXQUBxPQrXo7BBQA=="},"y":{"dtype":"f8","bdata":"nSgucFAfdUC\u002fJrapoJF0QBoUib479nRAlSIvEAUHdUCDH1D47El1QA=="},"type":"scatter","xaxis":"x","yaxis":"y"},{"customdata":[[25,"Encoding SD (848\u00d7480)"],[23,"Encoding SD (848\u00d7480)"],[21,"Encoding SD (848\u00d7480)"],[19,"Encoding SD (848\u00d7480)"],[17,"Encoding SD (848\u00d7480)"]],"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: QP=%{customdata[0]}\u003cbr\u003eCompression ratio: %{y:.1f}\u00d7\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","line":{"color":"#7a0042"},"marker":{"color":"#7a0042"},"mode":"lines+markers","name":"PVIO (GPU)","showlegend":false,"x":{"dtype":"f8","bdata":"mpmZmZkZQUAzMzMzMzNBQOF6FK5HYUFA16NwPQqXQUBxPQrXo7BBQA=="},"y":{"dtype":"f8","bdata":"ZmZmZmbmUkCamZmZmRlKQDMzMzMzs0JAmpmZmZmZLEBmZmZmZmYYQA=="},"type":"scatter","xaxis":"x2","yaxis":"y2"},{"customdata":[[67,"Encoding SD (848\u00d7480)"],[63,"Encoding SD (848\u00d7480)"],[59,"Encoding SD (848\u00d7480)"],[55,"Encoding SD (848\u00d7480)"],[51,"Encoding SD (848\u00d7480)"]],"hovertemplate":"\u003cb\u003eOpenCV\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: JPEG Q=%{customdata[0]}\u003cbr\u003eThroughput: %{y:.0f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"opencv","line":{"color":"#90c4e4"},"marker":{"color":"#90c4e4"},"mode":"lines+markers","name":"OpenCV","showlegend":true,"x":{"dtype":"f8","bdata":"CtejcD0KQkAK16NwPQpCQArXo3A9CkJACtejcD0KQkAK16NwPQpCQA=="},"y":{"dtype":"f8","bdata":"Cu5tgERygkBzwgXVE\u002fGBQPlSpvvMT4JAUsPVmj3pgUAix80NF06CQA=="},"type":"scatter","xaxis":"x","yaxis":"y"},{"customdata":[[67,"Encoding SD (848\u00d7480)"],[63,"Encoding SD (848\u00d7480)"],[59,"Encoding SD (848\u00d7480)"],[55,"Encoding SD (848\u00d7480)"],[51,"Encoding SD (848\u00d7480)"]],"hovertemplate":"\u003cb\u003eOpenCV\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: JPEG Q=%{customdata[0]}\u003cbr\u003eCompression ratio: %{y:.1f}\u00d7\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"opencv","line":{"color":"#90c4e4"},"marker":{"color":"#90c4e4"},"mode":"lines+markers","name":"OpenCV","showlegend":false,"x":{"dtype":"f8","bdata":"CtejcD0KQkAK16NwPQpCQArXo3A9CkJACtejcD0KQkAK16NwPQpCQA=="},"y":{"dtype":"f8","bdata":"ZmZmZmZmHEBmZmZmZmYcQGZmZmZmZhxAZmZmZmZmHEBmZmZmZmYcQA=="},"type":"scatter","xaxis":"x2","yaxis":"y2"},{"customdata":[[25,"Encoding SD (848\u00d7480)"],[23,"Encoding SD (848\u00d7480)"],[21,"Encoding SD (848\u00d7480)"],[19,"Encoding SD (848\u00d7480)"],[17,"Encoding SD (848\u00d7480)"]],"hovertemplate":"\u003cb\u003ePyAV\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: CRF=%{customdata[0]}\u003cbr\u003eThroughput: %{y:.0f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pyav","line":{"color":"#90c4e4"},"marker":{"color":"#90c4e4"},"mode":"lines+markers","name":"PyAV","showlegend":true,"x":{"dtype":"f8","bdata":"pHA9CtfjQEBmZmZmZgZBQClcj8L1KEFAZmZmZmZGQUDhehSuR4FBQA=="},"y":{"dtype":"f8","bdata":"9QMC4oxvaUAPHg4GwuthQGhLFObrvltATiL6EAujU0CcqOBZy11NQA=="},"type":"scatter","xaxis":"x","yaxis":"y"},{"customdata":[[25,"Encoding SD (848\u00d7480)"],[23,"Encoding SD (848\u00d7480)"],[21,"Encoding SD (848\u00d7480)"],[19,"Encoding SD (848\u00d7480)"],[17,"Encoding SD (848\u00d7480)"]],"hovertemplate":"\u003cb\u003ePyAV\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: CRF=%{customdata[0]}\u003cbr\u003eCompression ratio: %{y:.1f}\u00d7\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pyav","line":{"color":"#90c4e4"},"marker":{"color":"#90c4e4"},"mode":"lines+markers","name":"PyAV","showlegend":false,"x":{"dtype":"f8","bdata":"pHA9CtfjQEBmZmZmZgZBQClcj8L1KEFAZmZmZmZGQUDhehSuR4FBQA=="},"y":{"dtype":"f8","bdata":"AAAAAAAASEDNzMzMzMw0QJqZmZmZmSRAAAAAAAAAEkDNzMzMzMwAQA=="},"type":"scatter","xaxis":"x2","yaxis":"y2"},{"customdata":[[25,"Encoding HD (1280\u00d7720)"],[23,"Encoding HD (1280\u00d7720)"],[21,"Encoding HD (1280\u00d7720)"],[19,"Encoding HD (1280\u00d7720)"],[17,"Encoding HD (1280\u00d7720)"]],"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: CRF=%{customdata[0]}\u003cbr\u003eThroughput: %{y:.0f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","line":{"color":"#0c2e6e"},"marker":{"color":"#0c2e6e"},"mode":"lines+markers","name":"PVIO (CPU)","showlegend":false,"x":{"dtype":"f8","bdata":"rkfhehQOQUCF61G4HkVBQLgehetReEFA16NwPQqXQUBSuB6F69FBQA=="},"y":{"dtype":"f8","bdata":"OsvpfADgY0AQCOBAI49aQL70TZ\u002fXdFNAYLJfuarIS0A+LcdpQTJFQA=="},"type":"scatter","xaxis":"x3","yaxis":"y3"},{"customdata":[[25,"Encoding HD (1280\u00d7720)"],[23,"Encoding HD (1280\u00d7720)"],[21,"Encoding HD (1280\u00d7720)"],[19,"Encoding HD (1280\u00d7720)"],[17,"Encoding HD (1280\u00d7720)"]],"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: CRF=%{customdata[0]}\u003cbr\u003eCompression ratio: %{y:.1f}\u00d7\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","line":{"color":"#0c2e6e"},"marker":{"color":"#0c2e6e"},"mode":"lines+markers","name":"PVIO (CPU)","showlegend":false,"x":{"dtype":"f8","bdata":"rkfhehQOQUCF61G4HkVBQLgehetReEFA16NwPQqXQUBSuB6F69FBQA=="},"y":{"dtype":"f8","bdata":"mpmZmZkZSEAAAAAAAAA0QJqZmZmZmSNAmpmZmZmZEUDNzMzMzMwAQA=="},"type":"scatter","xaxis":"x4","yaxis":"y4"},{"customdata":[[25,"Encoding HD (1280\u00d7720)"],[23,"Encoding HD (1280\u00d7720)"],[21,"Encoding HD (1280\u00d7720)"],[19,"Encoding HD (1280\u00d7720)"],[17,"Encoding HD (1280\u00d7720)"]],"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: QP=%{customdata[0]}\u003cbr\u003eThroughput: %{y:.0f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","line":{"color":"#7a0042"},"marker":{"color":"#7a0042"},"mode":"lines+markers","name":"PVIO (GPU)","showlegend":false,"x":{"dtype":"f8","bdata":"FK5H4XoUQUDsUbgehStBQD0K16NwXUFAMzMzMzOTQUDsUbgehatBQA=="},"y":{"dtype":"f8","bdata":"WhLgfdWjakCQ+6GtwkRqQEPag2LC42pAT8YZmg\u002fOakDmynlXJl5qQA=="},"type":"scatter","xaxis":"x3","yaxis":"y3"},{"customdata":[[25,"Encoding HD (1280\u00d7720)"],[23,"Encoding HD (1280\u00d7720)"],[21,"Encoding HD (1280\u00d7720)"],[19,"Encoding HD (1280\u00d7720)"],[17,"Encoding HD (1280\u00d7720)"]],"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: QP=%{customdata[0]}\u003cbr\u003eCompression ratio: %{y:.1f}\u00d7\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","line":{"color":"#7a0042"},"marker":{"color":"#7a0042"},"mode":"lines+markers","name":"PVIO (GPU)","showlegend":false,"x":{"dtype":"f8","bdata":"FK5H4XoUQUDsUbgehStBQD0K16NwXUFAMzMzMzOTQUDsUbgehatBQA=="},"y":{"dtype":"f8","bdata":"MzMzMzNzU0CamZmZmZlKQAAAAAAAQENAMzMzMzMzLEBmZmZmZmYYQA=="},"type":"scatter","xaxis":"x4","yaxis":"y4"},{"customdata":[[67,"Encoding HD (1280\u00d7720)"],[63,"Encoding HD (1280\u00d7720)"],[59,"Encoding HD (1280\u00d7720)"],[55,"Encoding HD (1280\u00d7720)"],[51,"Encoding HD (1280\u00d7720)"]],"hovertemplate":"\u003cb\u003eOpenCV\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: JPEG Q=%{customdata[0]}\u003cbr\u003eThroughput: %{y:.0f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"opencv","line":{"color":"#90c4e4"},"marker":{"color":"#90c4e4"},"mode":"lines+markers","name":"OpenCV","showlegend":false,"x":{"dtype":"f8","bdata":"zczMzMwMQkDNzMzMzAxCQM3MzMzMDEJAzczMzMwMQkDNzMzMzAxCQA=="},"y":{"dtype":"f8","bdata":"XxftnA3BcEAEGCg9ORBwQHmkhnRriW1Ae3mHfuCIcED2oaDwCqVwQA=="},"type":"scatter","xaxis":"x3","yaxis":"y3"},{"customdata":[[67,"Encoding HD (1280\u00d7720)"],[63,"Encoding HD (1280\u00d7720)"],[59,"Encoding HD (1280\u00d7720)"],[55,"Encoding HD (1280\u00d7720)"],[51,"Encoding HD (1280\u00d7720)"]],"hovertemplate":"\u003cb\u003eOpenCV\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: JPEG Q=%{customdata[0]}\u003cbr\u003eCompression ratio: %{y:.1f}\u00d7\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"opencv","line":{"color":"#90c4e4"},"marker":{"color":"#90c4e4"},"mode":"lines+markers","name":"OpenCV","showlegend":false,"x":{"dtype":"f8","bdata":"zczMzMwMQkDNzMzMzAxCQM3MzMzMDEJAzczMzMwMQkDNzMzMzAxCQA=="},"y":{"dtype":"f8","bdata":"mpmZmZmZHUCamZmZmZkdQJqZmZmZmR1AmpmZmZmZHUCamZmZmZkdQA=="},"type":"scatter","xaxis":"x4","yaxis":"y4"},{"customdata":[[25,"Encoding HD (1280\u00d7720)"],[23,"Encoding HD (1280\u00d7720)"],[21,"Encoding HD (1280\u00d7720)"],[19,"Encoding HD (1280\u00d7720)"],[17,"Encoding HD (1280\u00d7720)"]],"hovertemplate":"\u003cb\u003ePyAV\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: CRF=%{customdata[0]}\u003cbr\u003eThroughput: %{y:.0f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pyav","line":{"color":"#90c4e4"},"marker":{"color":"#90c4e4"},"mode":"lines+markers","name":"PyAV","showlegend":false,"x":{"dtype":"f8","bdata":"CtejcD0KQUCkcD0K1yNBQOxRuB6FS0FA7FG4HoVrQUAAAAAAAKBBQA=="},"y":{"dtype":"f8","bdata":"2j8\u002ft99vWkCYDs5drQxTQEW\u002fftBDZkxARHlcVf3LRECeJVLwtwE\u002fQA=="},"type":"scatter","xaxis":"x3","yaxis":"y3"},{"customdata":[[25,"Encoding HD (1280\u00d7720)"],[23,"Encoding HD (1280\u00d7720)"],[21,"Encoding HD (1280\u00d7720)"],[19,"Encoding HD (1280\u00d7720)"],[17,"Encoding HD (1280\u00d7720)"]],"hovertemplate":"\u003cb\u003ePyAV\u003c\u002fb\u003e\u003cbr\u003ePSNR: %{x:.1f} dB\u003cbr\u003eParam: CRF=%{customdata[0]}\u003cbr\u003eCompression ratio: %{y:.1f}\u00d7\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pyav","line":{"color":"#90c4e4"},"marker":{"color":"#90c4e4"},"mode":"lines+markers","name":"PyAV","showlegend":false,"x":{"dtype":"f8","bdata":"CtejcD0KQUCkcD0K1yNBQOxRuB6FS0FA7FG4HoVrQUAAAAAAAKBBQA=="},"y":{"dtype":"f8","bdata":"ZmZmZmYmSEAAAAAAAAA0QM3MzMzMzCNAmpmZmZmZEUDNzMzMzMwAQA=="},"type":"scatter","xaxis":"x4","yaxis":"y4"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"xaxis":{"anchor":"y","domain":[0.0,1.0],"title":{"text":"PSNR (dB)"}},"yaxis":{"anchor":"x","domain":[0.84375,1.0],"title":{"text":"Throughput (frames\u002fs)"}},"xaxis2":{"anchor":"y2","domain":[0.0,1.0],"title":{"text":"PSNR (dB)"}},"yaxis2":{"anchor":"x2","domain":[0.5625,0.71875],"title":{"text":"Compression ratio (JPEG folder \u002f video)"}},"xaxis3":{"anchor":"y3","domain":[0.0,1.0],"title":{"text":"PSNR (dB)"}},"yaxis3":{"anchor":"x3","domain":[0.28125,0.4375],"title":{"text":"Throughput (frames\u002fs)"}},"xaxis4":{"anchor":"y4","domain":[0.0,1.0],"title":{"text":"PSNR (dB)"}},"yaxis4":{"anchor":"x4","domain":[0.0,0.15625],"title":{"text":"Compression ratio (JPEG folder \u002f video)"}},"annotations":[{"font":{"size":16},"showarrow":false,"text":"Encoding SD (848\u00d7480) \u2014 Throughput","x":0.5,"xanchor":"center","xref":"paper","y":1.0,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"Encoding SD (848\u00d7480) \u2014 Compression ratio","x":0.5,"xanchor":"center","xref":"paper","y":0.71875,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"Encoding HD (1280\u00d7720) \u2014 Throughput","x":0.5,"xanchor":"center","xref":"paper","y":0.4375,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"Encoding HD (1280\u00d7720) \u2014 Compression ratio","x":0.5,"xanchor":"center","xref":"paper","y":0.15625,"yanchor":"bottom","yref":"paper"}],"legend":{"title":{"text":"Backend"}},"title":{"text":"Encode throughput and compression ratio vs quality (PSNR)"},"hovermode":"closest","height":1400},                        {"responsive": true}                    )                };            </script>        </div>
+
+<h2 id="encode-at-matched-image-quality">Encode at matched image quality</h2>
+<div style="height:1400px; width:100%;">                        <script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-3.6.0.min.js" integrity="sha256-QaOVwtVY0T02VaHrr6pnoHLCwayMJp4O5n4YyaE3rJk=" crossorigin="anonymous"></script>                <div id="2dcc7d18-89bc-4813-8bd8-ba7f22e8c481" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("2dcc7d18-89bc-4813-8bd8-ba7f22e8c481")) {                    Plotly.newPlot(                        "2dcc7d18-89bc-4813-8bd8-ba7f22e8c481",                        [{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cbr\u003ePSNR 34.6 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":true,"x":["PVIO (CPU)"],"y":[165.9],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003eOpenCV\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cbr\u003ePSNR 36.1 dB (off-target \u2014 knob did not reach it)\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":true,"x":["OpenCV"],"y":[590.3],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003ePyAV\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cbr\u003ePSNR 34.6 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV"],"y":[75.9],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cbr\u003ePSNR 34.6 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":true,"x":["PVIO (GPU)"],"y":[332.7],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} \u00d7\u003cbr\u003ePSNR 34.6 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":false,"x":["PVIO (CPU)"],"y":[14.1],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003eOpenCV\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} \u00d7\u003cbr\u003ePSNR 36.1 dB (off-target \u2014 knob did not reach it)\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["OpenCV"],"y":[7.1],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003ePyAV\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} \u00d7\u003cbr\u003ePSNR 34.6 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV"],"y":[4.1],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} \u00d7\u003cbr\u003ePSNR 34.6 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":false,"x":["PVIO (GPU)"],"y":[43.2],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cbr\u003ePSNR 34.7 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":false,"x":["PVIO (CPU)"],"y":[93.4],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003eOpenCV\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cbr\u003ePSNR 36.1 dB (off-target \u2014 knob did not reach it)\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["OpenCV"],"y":[268.1],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003ePyAV\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cbr\u003ePSNR 34.7 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV"],"y":[49.2],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cbr\u003ePSNR 34.7 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":false,"x":["PVIO (GPU)"],"y":[214.8],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} \u00d7\u003cbr\u003ePSNR 34.7 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":false,"x":["PVIO (CPU)"],"y":[14.9],"type":"bar","xaxis":"x4","yaxis":"y4"},{"hovertemplate":"\u003cb\u003eOpenCV\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} \u00d7\u003cbr\u003ePSNR 36.1 dB (off-target \u2014 knob did not reach it)\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["OpenCV"],"y":[7.4],"type":"bar","xaxis":"x4","yaxis":"y4"},{"hovertemplate":"\u003cb\u003ePyAV\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} \u00d7\u003cbr\u003ePSNR 34.7 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV"],"y":[6.8],"type":"bar","xaxis":"x4","yaxis":"y4"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} \u00d7\u003cbr\u003ePSNR 34.7 dB\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":false,"x":["PVIO (GPU)"],"y":[39.3],"type":"bar","xaxis":"x4","yaxis":"y4"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"xaxis":{"anchor":"y","domain":[0.0,1.0]},"yaxis":{"anchor":"x","domain":[0.84375,1.0],"title":{"text":"Throughput (frames\u002fs)"}},"xaxis2":{"anchor":"y2","domain":[0.0,1.0]},"yaxis2":{"anchor":"x2","domain":[0.5625,0.71875],"title":{"text":"Compression ratio (\u00d7)"}},"xaxis3":{"anchor":"y3","domain":[0.0,1.0]},"yaxis3":{"anchor":"x3","domain":[0.28125,0.4375],"title":{"text":"Throughput (frames\u002fs)"}},"xaxis4":{"anchor":"y4","domain":[0.0,1.0]},"yaxis4":{"anchor":"x4","domain":[0.0,0.15625],"title":{"text":"Compression ratio (\u00d7)"}},"annotations":[{"font":{"size":16},"showarrow":false,"text":"Encoding SD (848\u00d7480) \u2014 Throughput","x":0.5,"xanchor":"center","xref":"paper","y":1.0,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"Encoding SD (848\u00d7480) \u2014 Compression ratio","x":0.5,"xanchor":"center","xref":"paper","y":0.71875,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"Encoding HD (1280\u00d7720) \u2014 Throughput","x":0.5,"xanchor":"center","xref":"paper","y":0.4375,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"Encoding HD (1280\u00d7720) \u2014 Compression ratio","x":0.5,"xanchor":"center","xref":"paper","y":0.15625,"yanchor":"bottom","yref":"paper"}],"shapes":[{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":2.5,"x1":2.5,"xref":"x","y0":0,"y1":1,"yref":"y domain"},{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":2.5,"x1":2.5,"xref":"x2","y0":0,"y1":1,"yref":"y2 domain"},{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":2.5,"x1":2.5,"xref":"x3","y0":0,"y1":1,"yref":"y3 domain"},{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":2.5,"x1":2.5,"xref":"x4","y0":0,"y1":1,"yref":"y4 domain"}],"legend":{"title":{"text":"Backend"}},"title":{"text":"Encode at matched image quality (target PSNR \u224835 dB (auto))  \u00b7  blue = CPU, pink = GPU"},"barmode":"group","height":1400},                        {"responsive": true}                    )                };            </script>        </div>
+
+<h2 id="decode-throughput">Decode throughput</h2>
+<div style="height:1920px; width:100%;">                        <script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-3.6.0.min.js" integrity="sha256-QaOVwtVY0T02VaHrr6pnoHLCwayMJp4O5n4YyaE3rJk=" crossorigin="anonymous"></script>                <div id="1def2e66-7a69-4e9c-8a79-73d4e578b8b0" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("1def2e66-7a69-4e9c-8a79-73d4e578b8b0")) {                    Plotly.newPlot(                        "1def2e66-7a69-4e9c-8a79-73d4e578b8b0",                        [{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":true,"x":["PVIO (CPU)"],"y":[460.8960369965686],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003eOpenCV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":true,"x":["OpenCV (CPU)"],"y":[545.21726590149],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003ePyAV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV (CPU)"],"y":[600.593724138706],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003eTorchCodec (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["TorchCodec (CPU)"],"y":[514.0363423207914],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":true,"x":["PVIO (GPU)"],"y":[2137.039373826409],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003eTorchCodec (CUDA)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_gpu","marker":{"color":"#f0a0c4"},"name":"Other GPU","showlegend":true,"x":["TorchCodec (CUDA)"],"y":[2132.9651209902795],"type":"bar","xaxis":"x","yaxis":"y"},{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":false,"x":["PVIO (CPU)"],"y":[121.3405471665217],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003eOpenCV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["OpenCV (CPU)"],"y":[17.45130005391181],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003ePyAV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV (CPU)"],"y":[31.72192182658445],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003eTorchCodec (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["TorchCodec (CPU)"],"y":[176.1347182896584],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":false,"x":["PVIO (GPU)"],"y":[497.90828979433326],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003eTorchCodec (CUDA)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_gpu","marker":{"color":"#f0a0c4"},"name":"Other GPU","showlegend":false,"x":["TorchCodec (CUDA)"],"y":[554.3769777910287],"type":"bar","xaxis":"x2","yaxis":"y2"},{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":false,"x":["PVIO (CPU)"],"y":[183.27578972482564],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003eOpenCV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["OpenCV (CPU)"],"y":[245.02701000767732],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003ePyAV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV (CPU)"],"y":[258.6480080138001],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003eTorchCodec (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["TorchCodec (CPU)"],"y":[239.79666834669],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":false,"x":["PVIO (GPU)"],"y":[1152.0915583655612],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003eTorchCodec (CUDA)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_gpu","marker":{"color":"#f0a0c4"},"name":"Other GPU","showlegend":false,"x":["TorchCodec (CUDA)"],"y":[1169.0203481811857],"type":"bar","xaxis":"x3","yaxis":"y3"},{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":false,"x":["PVIO (CPU)"],"y":[48.64101678362955],"type":"bar","xaxis":"x4","yaxis":"y4"},{"hovertemplate":"\u003cb\u003eOpenCV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["OpenCV (CPU)"],"y":[7.892107928822358],"type":"bar","xaxis":"x4","yaxis":"y4"},{"hovertemplate":"\u003cb\u003ePyAV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV (CPU)"],"y":[14.340033396069028],"type":"bar","xaxis":"x4","yaxis":"y4"},{"hovertemplate":"\u003cb\u003eTorchCodec (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["TorchCodec (CPU)"],"y":[81.0757594879518],"type":"bar","xaxis":"x4","yaxis":"y4"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":false,"x":["PVIO (GPU)"],"y":[261.6887890252765],"type":"bar","xaxis":"x4","yaxis":"y4"},{"hovertemplate":"\u003cb\u003eTorchCodec (CUDA)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_gpu","marker":{"color":"#f0a0c4"},"name":"Other GPU","showlegend":false,"x":["TorchCodec (CUDA)"],"y":[290.6941505897162],"type":"bar","xaxis":"x4","yaxis":"y4"},{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":false,"x":["PVIO (CPU)"],"y":[66.79403508427214],"type":"bar","xaxis":"x5","yaxis":"y5"},{"hovertemplate":"\u003cb\u003eOpenCV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["OpenCV (CPU)"],"y":[101.85191884800538],"type":"bar","xaxis":"x5","yaxis":"y5"},{"hovertemplate":"\u003cb\u003ePyAV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV (CPU)"],"y":[111.96660514429212],"type":"bar","xaxis":"x5","yaxis":"y5"},{"hovertemplate":"\u003cb\u003eTorchCodec (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["TorchCodec (CPU)"],"y":[97.02144977173594],"type":"bar","xaxis":"x5","yaxis":"y5"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":false,"x":["PVIO (GPU)"],"y":[553.5822153767251],"type":"bar","xaxis":"x5","yaxis":"y5"},{"hovertemplate":"\u003cb\u003eTorchCodec (CUDA)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_gpu","marker":{"color":"#f0a0c4"},"name":"Other GPU","showlegend":false,"x":["TorchCodec (CUDA)"],"y":[554.4276320942208],"type":"bar","xaxis":"x5","yaxis":"y5"},{"hovertemplate":"\u003cb\u003ePVIO (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_cpu","marker":{"color":"#0c2e6e"},"name":"PVIO (CPU)","showlegend":false,"x":["PVIO (CPU)"],"y":[22.15957465732689],"type":"bar","xaxis":"x6","yaxis":"y6"},{"hovertemplate":"\u003cb\u003eOpenCV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["OpenCV (CPU)"],"y":[3.358415823673317],"type":"bar","xaxis":"x6","yaxis":"y6"},{"hovertemplate":"\u003cb\u003ePyAV (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["PyAV (CPU)"],"y":[5.972689449957614],"type":"bar","xaxis":"x6","yaxis":"y6"},{"hovertemplate":"\u003cb\u003eTorchCodec (CPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_cpu","marker":{"color":"#90c4e4"},"name":"Other CPU","showlegend":false,"x":["TorchCodec (CPU)"],"y":[34.870000740503286],"type":"bar","xaxis":"x6","yaxis":"y6"},{"hovertemplate":"\u003cb\u003ePVIO (GPU)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"pvio_gpu","marker":{"color":"#7a0042"},"name":"PVIO (GPU)","showlegend":false,"x":["PVIO (GPU)"],"y":[134.700940483851],"type":"bar","xaxis":"x6","yaxis":"y6"},{"hovertemplate":"\u003cb\u003eTorchCodec (CUDA)\u003c\u002fb\u003e\u003cbr\u003e%{y:.1f} fps\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"other_gpu","marker":{"color":"#f0a0c4"},"name":"Other GPU","showlegend":false,"x":["TorchCodec (CUDA)"],"y":[139.15438521169602],"type":"bar","xaxis":"x6","yaxis":"y6"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"xaxis":{"anchor":"y","domain":[0.0,1.0]},"yaxis":{"anchor":"x","domain":[0.9027777777777777,0.9999999999999999],"title":{"text":"Throughput (frames\u002fs)"}},"xaxis2":{"anchor":"y2","domain":[0.0,1.0]},"yaxis2":{"anchor":"x2","domain":[0.7222222222222222,0.8194444444444444],"title":{"text":"Throughput (frames\u002fs)"}},"xaxis3":{"anchor":"y3","domain":[0.0,1.0]},"yaxis3":{"anchor":"x3","domain":[0.5416666666666667,0.638888888888889],"title":{"text":"Throughput (frames\u002fs)"}},"xaxis4":{"anchor":"y4","domain":[0.0,1.0]},"yaxis4":{"anchor":"x4","domain":[0.3611111111111111,0.4583333333333333],"title":{"text":"Throughput (frames\u002fs)"}},"xaxis5":{"anchor":"y5","domain":[0.0,1.0]},"yaxis5":{"anchor":"x5","domain":[0.18055555555555555,0.2777777777777778],"title":{"text":"Throughput (frames\u002fs)"}},"xaxis6":{"anchor":"y6","domain":[0.0,1.0]},"yaxis6":{"anchor":"x6","domain":[0.0,0.09722222222222222],"title":{"text":"Throughput (frames\u002fs)"}},"annotations":[{"font":{"size":16},"showarrow":false,"text":"SD (854\u00d7480) \u2014 Sequential","x":0.5,"xanchor":"center","xref":"paper","y":0.9999999999999999,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"SD (854\u00d7480) \u2014 Precise random-access","x":0.5,"xanchor":"center","xref":"paper","y":0.8194444444444444,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"HD (1280\u00d7720) \u2014 Sequential","x":0.5,"xanchor":"center","xref":"paper","y":0.638888888888889,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"HD (1280\u00d7720) \u2014 Precise random-access","x":0.5,"xanchor":"center","xref":"paper","y":0.4583333333333333,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"Full HD (1920\u00d71080) \u2014 Sequential","x":0.5,"xanchor":"center","xref":"paper","y":0.2777777777777778,"yanchor":"bottom","yref":"paper"},{"font":{"size":16},"showarrow":false,"text":"Full HD (1920\u00d71080) \u2014 Precise random-access","x":0.5,"xanchor":"center","xref":"paper","y":0.09722222222222222,"yanchor":"bottom","yref":"paper"}],"shapes":[{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":3.5,"x1":3.5,"xref":"x","y0":0,"y1":1,"yref":"y domain"},{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":3.5,"x1":3.5,"xref":"x2","y0":0,"y1":1,"yref":"y2 domain"},{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":3.5,"x1":3.5,"xref":"x3","y0":0,"y1":1,"yref":"y3 domain"},{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":3.5,"x1":3.5,"xref":"x4","y0":0,"y1":1,"yref":"y4 domain"},{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":3.5,"x1":3.5,"xref":"x5","y0":0,"y1":1,"yref":"y5 domain"},{"line":{"color":"rgba(100,100,100,0.35)","dash":"dot","width":1},"type":"line","x0":3.5,"x1":3.5,"xref":"x6","y0":0,"y1":1,"yref":"y6 domain"}],"legend":{"title":{"text":"Backend"}},"title":{"text":"Decode throughput  (blue = CPU \u00b7 pink = GPU)"},"hovermode":"closest","height":1920},                        {"responsive": true}                    )                };            </script>        </div>
+
+<!-- Detailed results: import directly from Markdown file -->
+
+<h2 id="benchmark-result-tables">Benchmark result tables</h2>
+<details class="info">
+<summary>Encoding at matched PSNR (frames/s and compression at equal image quality, interpolated from the sweep; x_psnr_matched=False means the encoder's sweep did not reach the target and the nearest point is shown)</summary>
+<table>
+<thead>
+<tr>
+<th>workload</th>
+<th>backend</th>
+<th>x_target_psnr</th>
+<th>x_psnr_db</th>
+<th>x_psnr_matched</th>
+<th>metric_main</th>
+<th>x_compression_ratio</th>
+<th>x_file_size_mb</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>enc_hd</td>
+<td>opencv</td>
+<td>34.7</td>
+<td>36.1</td>
+<td>False</td>
+<td>268.1</td>
+<td>7.4</td>
+<td>4.99</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_cpu</td>
+<td>34.7</td>
+<td>34.7</td>
+<td>True</td>
+<td>93.4</td>
+<td>14.9</td>
+<td>2.48</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_gpu</td>
+<td>34.7</td>
+<td>34.7</td>
+<td>True</td>
+<td>214.8</td>
+<td>39.3</td>
+<td>0.94</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pyav</td>
+<td>34.7</td>
+<td>34.7</td>
+<td>True</td>
+<td>49.2</td>
+<td>6.8</td>
+<td>5.45</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>opencv</td>
+<td>34.61</td>
+<td>36.08</td>
+<td>False</td>
+<td>590.3</td>
+<td>7.1</td>
+<td>2.3</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_cpu</td>
+<td>34.61</td>
+<td>34.61</td>
+<td>True</td>
+<td>165.9</td>
+<td>14.1</td>
+<td>1.17</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_gpu</td>
+<td>34.61</td>
+<td>34.61</td>
+<td>True</td>
+<td>332.7</td>
+<td>43.2</td>
+<td>0.38</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pyav</td>
+<td>34.61</td>
+<td>34.61</td>
+<td>True</td>
+<td>75.9</td>
+<td>4.1</td>
+<td>3.96</td>
+</tr>
+</tbody>
+</table>
+</details>
+<details class="info">
+<summary>Encoding Pareto sweep (throughput vs compression per quality level)</summary>
+<table>
+<thead>
+<tr>
+<th>workload</th>
+<th>backend</th>
+<th>x_quality_param</th>
+<th>metric_main</th>
+<th>x_compression_ratio</th>
+<th>x_psnr_db</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>enc_hd</td>
+<td>opencv</td>
+<td>51.0</td>
+<td>266.315</td>
+<td>7.4</td>
+<td>36.1</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>opencv</td>
+<td>55.0</td>
+<td>264.555</td>
+<td>7.4</td>
+<td>36.1</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>opencv</td>
+<td>59.0</td>
+<td>236.294</td>
+<td>7.4</td>
+<td>36.1</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>opencv</td>
+<td>63.0</td>
+<td>257.014</td>
+<td>7.4</td>
+<td>36.1</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>opencv</td>
+<td>67.0</td>
+<td>268.066</td>
+<td>7.4</td>
+<td>36.1</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_cpu</td>
+<td>17.0</td>
+<td>42.393</td>
+<td>2.1</td>
+<td>35.64</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_cpu</td>
+<td>19.0</td>
+<td>55.568</td>
+<td>4.4</td>
+<td>35.18</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_cpu</td>
+<td>21.0</td>
+<td>77.826</td>
+<td>9.8</td>
+<td>34.94</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_cpu</td>
+<td>23.0</td>
+<td>106.237</td>
+<td>20.0</td>
+<td>34.54</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_cpu</td>
+<td>25.0</td>
+<td>159.0</td>
+<td>48.2</td>
+<td>34.11</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_gpu</td>
+<td>17.0</td>
+<td>210.942</td>
+<td>6.1</td>
+<td>35.34</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_gpu</td>
+<td>19.0</td>
+<td>214.439</td>
+<td>14.1</td>
+<td>35.15</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_gpu</td>
+<td>21.0</td>
+<td>215.117</td>
+<td>38.5</td>
+<td>34.73</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_gpu</td>
+<td>23.0</td>
+<td>210.149</td>
+<td>53.2</td>
+<td>34.34</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pvio_gpu</td>
+<td>25.0</td>
+<td>213.12</td>
+<td>77.8</td>
+<td>34.16</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pyav</td>
+<td>17.0</td>
+<td>31.007</td>
+<td>2.1</td>
+<td>35.25</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pyav</td>
+<td>19.0</td>
+<td>41.594</td>
+<td>4.4</td>
+<td>34.84</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pyav</td>
+<td>21.0</td>
+<td>56.799</td>
+<td>9.9</td>
+<td>34.59</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pyav</td>
+<td>23.0</td>
+<td>76.198</td>
+<td>20.0</td>
+<td>34.28</td>
+</tr>
+<tr>
+<td>enc_hd</td>
+<td>pyav</td>
+<td>25.0</td>
+<td>105.748</td>
+<td>48.3</td>
+<td>34.08</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>opencv</td>
+<td>51.0</td>
+<td>585.761</td>
+<td>7.1</td>
+<td>36.08</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>opencv</td>
+<td>55.0</td>
+<td>573.155</td>
+<td>7.1</td>
+<td>36.08</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>opencv</td>
+<td>59.0</td>
+<td>585.975</td>
+<td>7.1</td>
+<td>36.08</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>opencv</td>
+<td>63.0</td>
+<td>574.135</td>
+<td>7.1</td>
+<td>36.08</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>opencv</td>
+<td>67.0</td>
+<td>590.283</td>
+<td>7.1</td>
+<td>36.08</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_cpu</td>
+<td>17.0</td>
+<td>82.001</td>
+<td>2.1</td>
+<td>35.49</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_cpu</td>
+<td>19.0</td>
+<td>105.573</td>
+<td>4.6</td>
+<td>35.04</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_cpu</td>
+<td>21.0</td>
+<td>144.804</td>
+<td>10.3</td>
+<td>34.82</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_cpu</td>
+<td>23.0</td>
+<td>197.292</td>
+<td>20.9</td>
+<td>34.33</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_cpu</td>
+<td>25.0</td>
+<td>291.479</td>
+<td>48.9</td>
+<td>33.91</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_gpu</td>
+<td>17.0</td>
+<td>340.62</td>
+<td>6.1</td>
+<td>35.38</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_gpu</td>
+<td>19.0</td>
+<td>336.439</td>
+<td>14.3</td>
+<td>35.18</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_gpu</td>
+<td>21.0</td>
+<td>335.39</td>
+<td>37.4</td>
+<td>34.76</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_gpu</td>
+<td>23.0</td>
+<td>329.102</td>
+<td>52.2</td>
+<td>34.4</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pvio_gpu</td>
+<td>25.0</td>
+<td>337.957</td>
+<td>75.6</td>
+<td>34.2</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pyav</td>
+<td>17.0</td>
+<td>58.733</td>
+<td>2.1</td>
+<td>35.01</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pyav</td>
+<td>19.0</td>
+<td>78.548</td>
+<td>4.5</td>
+<td>34.55</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pyav</td>
+<td>21.0</td>
+<td>110.983</td>
+<td>10.3</td>
+<td>34.32</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pyav</td>
+<td>23.0</td>
+<td>143.367</td>
+<td>20.8</td>
+<td>34.05</td>
+</tr>
+<tr>
+<td>enc_sd</td>
+<td>pyav</td>
+<td>25.0</td>
+<td>203.486</td>
+<td>48.0</td>
+<td>33.78</td>
+</tr>
+</tbody>
+</table>
+</details>
+<details class="info">
+<summary>Random access (frames/s, higher better)</summary>
+<table>
+<thead>
+<tr>
+<th>workload</th>
+<th>opencv_cpu</th>
+<th>pvio_cpu</th>
+<th>pvio_gpu</th>
+<th>pyav_cpu</th>
+<th>torchcodec_cpu</th>
+<th>torchcodec_cuda</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>fhd_h264</td>
+<td>3.0</td>
+<td>22.0</td>
+<td>135.0</td>
+<td>6.0</td>
+<td>35.0</td>
+<td>139.0</td>
+</tr>
+<tr>
+<td>hd_h264</td>
+<td>8.0</td>
+<td>49.0</td>
+<td>262.0</td>
+<td>14.0</td>
+<td>81.0</td>
+<td>291.0</td>
+</tr>
+<tr>
+<td>sd_h264</td>
+<td>17.0</td>
+<td>121.0</td>
+<td>498.0</td>
+<td>32.0</td>
+<td>176.0</td>
+<td>554.0</td>
+</tr>
+</tbody>
+</table>
+</details>
+<details class="info">
+<summary>Seek correctness (all videos)</summary>
+<table>
+<thead>
+<tr>
+<th>backend</th>
+<th>x_seek_correct</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>opencv_cpu</td>
+<td>True</td>
+</tr>
+<tr>
+<td>pvio_cpu</td>
+<td>True</td>
+</tr>
+<tr>
+<td>pvio_gpu</td>
+<td>True</td>
+</tr>
+<tr>
+<td>pyav_cpu</td>
+<td>True</td>
+</tr>
+<tr>
+<td>torchcodec_cpu</td>
+<td>True</td>
+</tr>
+<tr>
+<td>torchcodec_cuda</td>
+<td>True</td>
+</tr>
+</tbody>
+</table>
+</details>
+<details class="info">
+<summary>Sequential access (frames/s, higher better)</summary>
+<table>
+<thead>
+<tr>
+<th>workload</th>
+<th>opencv_cpu</th>
+<th>pvio_cpu</th>
+<th>pvio_gpu</th>
+<th>pyav_cpu</th>
+<th>torchcodec_cpu</th>
+<th>torchcodec_cuda</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>fhd_h264</td>
+<td>102.0</td>
+<td>67.0</td>
+<td>554.0</td>
+<td>112.0</td>
+<td>97.0</td>
+<td>554.0</td>
+</tr>
+<tr>
+<td>hd_h264</td>
+<td>245.0</td>
+<td>183.0</td>
+<td>1152.0</td>
+<td>259.0</td>
+<td>240.0</td>
+<td>1169.0</td>
+</tr>
+<tr>
+<td>sd_h264</td>
+<td>545.0</td>
+<td>461.0</td>
+<td>2137.0</td>
+<td>601.0</td>
+<td>514.0</td>
+<td>2133.0</td>
+</tr>
+</tbody>
+</table>
+</details>
+<details class="info">
+<summary>Skipped / errored</summary>
+<table>
+<thead>
+<tr>
+<th>task</th>
+<th>backend</th>
+<th>workload</th>
+<th>error</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>random</td>
+<td>decord_cpu</td>
+<td>sd_h264</td>
+<td>import failed: No module named 'decord'</td>
+</tr>
+<tr>
+<td>random</td>
+<td>decord_cpu</td>
+<td>hd_h264</td>
+<td>import failed: No module named 'decord'</td>
+</tr>
+<tr>
+<td>random</td>
+<td>decord_cpu</td>
+<td>fhd_h264</td>
+<td>import failed: No module named 'decord'</td>
+</tr>
+<tr>
+<td>sequential</td>
+<td>dali_gpu</td>
+<td>sd_h264</td>
+<td>ImportError: cannot import name 'fn' from 'nvidia.dali' (unknown location)</td>
+</tr>
+<tr>
+<td>sequential</td>
+<td>decord_cpu</td>
+<td>sd_h264</td>
+<td>import failed: No module named 'decord'</td>
+</tr>
+<tr>
+<td>sequential</td>
+<td>dali_gpu</td>
+<td>hd_h264</td>
+<td>ImportError: cannot import name 'fn' from 'nvidia.dali' (unknown location)</td>
+</tr>
+<tr>
+<td>sequential</td>
+<td>decord_cpu</td>
+<td>hd_h264</td>
+<td>import failed: No module named 'decord'</td>
+</tr>
+<tr>
+<td>sequential</td>
+<td>dali_gpu</td>
+<td>fhd_h264</td>
+<td>ImportError: cannot import name 'fn' from 'nvidia.dali' (unknown location)</td>
+</tr>
+<tr>
+<td>sequential</td>
+<td>decord_cpu</td>
+<td>fhd_h264</td>
+<td>import failed: No module named 'decord'</td>
+</tr>
+</tbody>
+</table>
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
