@@ -1,19 +1,5 @@
 # Examples
 
-!!! info "Two frame representations"
-    PVIO has two layers with deliberately different frame formats:
-
-    - **Functional IO** (`pvio.io`: `read_frames_from_video`, `write_frames_to_video`)
-      works with **NumPy arrays in `(height, width, channels)` (HWC) layout**, `uint8`.
-      This is the conventional image layout most libraries (imageio, OpenCV, PIL) use.
-    - **The PyTorch layer** (`pvio.video` and `pvio.torch_tools`) yields **`torch.Tensor`
-      frames in `(channels, height, width)` (CHW) layout**, `float32` normalised to
-      `[0, 1]`. This is the layout PyTorch models expect.
-
-    So reading with `read_frames_from_video` gives you HWC uint8 NumPy arrays, while
-    iterating a `VideoCollectionDataLoader` gives you CHW float32 tensors. Convert
-    explicitly if you cross between the two layers.
-
 The IO examples below use NumPy arrays with shape `(height, width, channels)` and
 `uint8` dtype.
 
@@ -103,6 +89,11 @@ match it. For combining frames straight from the command line, see the
 Wrap it in `VideoCollectionDataLoader` to load in parallel across workers — useful for
 inference pipelines that process every frame independently.
 [TorchCodec](https://pytorch.org/torchcodec) is used for decoding.
+
+!!! info "Channels-height-width frame layout"
+    Unlike other parts of this library, `pvio.torch_tools` yields frames in
+    `(channels, height, width)` (CHW) layout, `float32` normalised to `[0, 1]`,
+    as is standard in PyTorch.
 
 ```python
 from pvio.video import EncodedVideo   # for encoded video files (e.g. MP4)
