@@ -1,8 +1,8 @@
 """Run the consolidated benchmark suite and write results, a summary, and figures.
 
 Three tasks (encoding, random access, sequential access) are measured across the
-video libraries on four metrics (lines of code, throughput, compression ratio,
-and the encode speed-vs-compression Pareto front).
+video libraries on throughput, compression ratio (with PSNR/SSIM for matched-
+quality comparison), and exact seek correctness.
 
 Usage::
 
@@ -48,26 +48,32 @@ def _render_md_table(df) -> str:
 
 
 def _write_summary(df, path) -> None:
+    from . import analysis, config
+
     ok = df[df["error"].isna() & df["metric_main"].notna()]
     lines = ["# Benchmark summary", ""]
 
     def section(title, body):
         lines.extend([f"## {title}", "", body, ""])
 
-    if (s := ok[ok["task"] == "encode"]).shape[0]:
+    matched = analysis.matched_psnr(df, config.MATCH_PSNR)
+    if matched.shape[0]:
         cols = [
             "workload",
             "backend",
+            "x_target_psnr",
+            "x_psnr_db",
+            "x_psnr_matched",
             "metric_main",
             "x_compression_ratio",
             "x_file_size_mb",
-            "x_psnr_db",
-            "x_ssim",
         ]
-        s = s.sort_values(["workload", "backend"])
+        matched = matched.sort_values(["workload", "backend"])
         section(
-            "Encoding (frames/s, compression ratio = JPEG-folder/video, quality)",
-            _render_md_table(s[cols].round(3)),
+            "Encoding at matched PSNR (frames/s and compression at equal image "
+            "quality, interpolated from the sweep; x_psnr_matched=False means the "
+            "encoder's sweep did not reach the target and the nearest point is shown)",
+            _render_md_table(matched[cols]),
         )
     if (s := ok[ok["task"] == "encode_pareto"]).shape[0]:
         cols = [

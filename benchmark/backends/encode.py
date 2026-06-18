@@ -4,8 +4,7 @@ Every backend exposes ``available()`` and ``encode(frames, fps, out_path,
 quality)``. ``quality`` is on the 0-51 H.264 quantiser scale (CRF for libx264,
 QP for NVENC); backends without a quality knob (OpenCV's mp4v) set
 ``tunable = False`` and ignore it. These mirror the minimal idiomatic usage of
-each library and are kept in sync with the ``snippets/encode`` files used for
-the lines-of-code metric.
+each library.
 """
 
 from __future__ import annotations

@@ -2,10 +2,11 @@
 
 Benchmarks [parallel-video-io](../README.md) (PVIO) against other video IO
 libraries across three tasks — **encoding** (merge frames into a video),
-**random access** (precise seek decoding), and **sequential access** — on four
-metrics: lines of user code, throughput, compression ratio, and the encode
-speed-vs-compression Pareto front. GPU paths (NVENC encode, NVDEC decode,
-on-GPU DALI) are used where available.
+**random access** (precise seek decoding), and **sequential access**. Each task
+reports throughput (frames/s); encoding adds compression ratio with PSNR/SSIM
+(so encoders can be compared at matched image quality) and random access adds
+**exact seek correctness**. GPU paths (NVENC encode, NVDEC decode, on-GPU DALI)
+are used where available.
 
 ## Latest results
 
@@ -104,16 +105,16 @@ All knobs can be overridden via environment variables:
 | `PVIO_BENCH_FPS` | `30` | Frame rate of generated videos |
 | `PVIO_BENCH_N_REPEATS` | `3` | Timed repetitions (best is reported) |
 | `PVIO_BENCH_N_RANDOM_READS` | `100` | Random frames fetched per video |
-| `PVIO_BENCH_QUALITY` | `20` | Default CRF/QP for single-point encode |
-| `PVIO_BENCH_QUALITY_SWEEP` | `17,19,21,23,25` | CRF/QP values for Pareto sweep |
+| `PVIO_BENCH_QUALITY_SWEEP` | `17,19,21,23,25` | CRF/QP values swept per encoder |
+| `PVIO_BENCH_MATCH_PSNR` | `0` (auto) | Target PSNR (dB) for the matched-quality encode comparison; `0` uses the per-workload overlap midpoint |
 | `PVIO_BENCH_JPEG_QUALITY` | `95` | JPEG quality for compression-ratio baseline |
 
 ## What is measured
 
 | Task | Metric(s) | Backends |
 |------|-----------|----------|
-| **Encoding** (frames → video) | encode frames/s, compression ratio, PSNR/SSIM, Pareto front | pvio_cpu (libx264), pvio_gpu (NVENC), pyav, opencv (MJPEG) |
-| **Random access** (precise seek) | frames/s **and seek correctness** | decord, opencv, pvio cpu/gpu, pyav, torchcodec cpu/cuda |
+| **Encoding** (frames → video) | encode frames/s, compression ratio, PSNR/SSIM, matched-PSNR point | pvio_cpu (libx264), pvio_gpu (NVENC), pyav, opencv (MJPEG) |
+| **Random access** (precise seek) | frames/s **and exact seek correctness** | decord, opencv, pvio cpu/gpu, pyav, torchcodec cpu/cuda |
 | **Sequential access** | frames/s | dali, decord, opencv, pvio cpu/gpu, pyav, torchcodec cpu/cuda |
 
 ### Metric definitions and fairness
@@ -122,24 +123,37 @@ All knobs can be overridden via environment variables:
   of `N_REPEATS` timed runs after a warm-up pass.
 - **Compression ratio** is `(sum of per-frame JPEG bytes) / (encoded video
   bytes)` — how much smaller the video is than storing each frame as a JPEG
-  (quality `JPEG_QUALITY`, default 95). Encoders are compared at the same
-  effective quality (CRF for libx264, QP for NVENC, default 20), with PSNR/SSIM
-  recorded so size can be read at matched quality.
-- **Pareto front** sweeps the quality knob for each tunable encoder, tracing a
-  curve in (compression ratio, throughput) space; up and to the right is better.
-- **Seek correctness** is verified empirically: each synthetic frame carries a
-  bright vertical bar whose position encodes its index. After a random read, we
-  recover the index from the decoded pixels and check it matches the request
-  (tolerance ≈ 1 frame). A library that silently returns the nearest keyframe
-  instead of the requested frame is caught here.
+  (quality `JPEG_QUALITY`, default 95).
+- **Matched-quality comparison.** Encoders are *not* compared at a shared
+  quality number: libx264's CRF and NVENC's QP sit on the same 0–51 scale but
+  are different operating points (CRF 20 ≠ QP 20). Instead each encoder's
+  quality is swept and its throughput/compression are interpolated to a common
+  **PSNR** (`MATCH_PSNR`, default auto), so all encoders are read at equal image
+  quality.
+- **Seek correctness** is verified *exactly*: each synthetic frame carries a
+  binary barcode of its index (macroblock-sized black/white blocks that survive
+  H.264 intact). After a random read, the index is decoded from the pixels and
+  must equal the requested index — zero tolerance. A library that silently
+  returns the nearest keyframe decodes to the wrong index and is flagged.
+- **Single-threaded decode.** All CPU decoders are pinned to one FFmpeg thread.
+  Out of the box OpenCV and Decord decode multithreaded (grabbing every core)
+  while TorchCodec/PVIO and PyAV decode single-threaded, so comparing defaults
+  measures *how many cores each library grabs* rather than decode efficiency —
+  with all cores the FFmpeg-based decoders converge to within ~15% of each
+  other. Pinning to one thread isolates per-core efficiency and matches PVIO's
+  operating regime: many videos decoded in parallel across DataLoader workers,
+  where one thread per decode avoids core oversubscription. (GPU decoders —
+  NVDEC, DALI — are unaffected.)
 
 ## Backend notes
 
 - **PVIO** appears as **CPU** and **GPU** for both encode (libx264 / NVENC via
   `write_frames_to_video(mode=...)`) and decode (`EncodedVideo(device=...)`).
 - **TorchCodec** is benchmarked raw on both **CPU** and **CUDA/NVDEC**. It is
-  PVIO's own decode backend, so `pvio_cpu` vs `torchcodec_cpu` (and `pvio_gpu`
-  vs `torchcodec_cuda`) shows the wrapper's overhead.
+  PVIO's own decode backend, and raw TorchCodec uses `seek_mode="exact"` to
+  match what PVIO does internally, so `pvio_cpu` vs `torchcodec_cpu` (and
+  `pvio_gpu` vs `torchcodec_cuda`) isolates the wrapper's overhead rather than a
+  seek-mode difference.
 - **DALI** decodes on the GPU; its video reader is a sequential pipeline, so it
   appears in the sequential task only (no precise random seek).
 - **Decord**: the PyPI `eva-decord` wheel is CPU-only; random access uses
@@ -153,10 +167,11 @@ All knobs can be overridden via environment variables:
 ```
 benchmark/
   config.py           # all knobs (env-overridable)
-  common.py           # timing, mem sampling, Result, JPEG baseline, quality scoring
-  datagen.py          # synthesise test videos (index-encoded frames)
+  common.py           # timing, Result, JPEG baseline, quality scoring
+  datagen.py          # synthesise test videos (barcode-indexed frames)
+  analysis.py         # derived metrics (matched-PSNR comparison)
   backends/           # encode.py, decode.py — one class per backend
-  bench_encode.py     # task 1: encoding (+ Pareto sweep)
+  bench_encode.py     # task 1: encoding quality sweep
   bench_random.py     # task 2: precise random access
   bench_sequential.py # task 3: sequential access
   plots.py            # figures from results.csv

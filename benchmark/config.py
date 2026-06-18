@@ -17,7 +17,6 @@ BENCH_DIR = Path(__file__).resolve().parent
 DATA_DIR = BENCH_DIR / "data"
 RESULTS_DIR = BENCH_DIR / "results"
 FIGURES_DIR = RESULTS_DIR / "figures"
-SNIPPETS_DIR = BENCH_DIR / "snippets"
 
 
 def _env(name: str, default: str) -> str:
@@ -37,17 +36,13 @@ class VideoSpec:
     width: int
     n_frames: int
     fps: int
-    codec: str  # "h264" or "hevc"
+    codec: str  # "h264" (only encoder wired up in datagen)
     gop: int  # keyframe interval (group-of-pictures size)
-    crf: int = 20
+    crf: int = 20  # CRF passed to ffmpeg when generating this source video
 
     @property
     def path(self) -> Path:
         return DATA_DIR / f"{self.name}.mp4"
-
-    @property
-    def frames_dir(self) -> Path:
-        return DATA_DIR / f"{self.name}_frames"
 
 
 # Resolution presets (height, width). Encode specs use multiples of 16 so the
@@ -76,15 +71,20 @@ ENCODE_SPECS: list[VideoSpec] = [
     VideoSpec("enc_hd", 720, 1280, _ENCODE_NFRAMES, FPS, "h264", gop=30),
 ]
 
-# Quality used for the single-point ("similar effective params") comparison, and
-# the sweep used to trace each encoder's speed-vs-compression Pareto front. Both
-# are on the 0-51 H.264 quantiser scale (CRF for libx264, QP for NVENC).
-DEFAULT_QUALITY = _env_int("QUALITY", 20)
-
-
+# Quality sweep used to trace each encoder's speed-vs-compression frontier. The
+# values are on the 0-51 H.264 quantiser scale, applied as libx264's CRF or
+# NVENC's QP per encoder. CRF and QP are *not* equivalent operating points, so
+# encoders are never compared at a shared quality number — they are compared at
+# matched PSNR, interpolated from this sweep (see MATCH_PSNR).
 def quality_sweep() -> list[int]:
     raw = _env("QUALITY_SWEEP", "17,19,21,23,25")
     return [int(x) for x in raw.split(",") if x.strip()]
+
+
+# Target PSNR (dB) for the matched-quality encode comparison. 0 (default) picks,
+# per workload, the midpoint of the PSNR range reachable by every encoder, so
+# all backends are compared at the same image quality regardless of CRF/QP.
+MATCH_PSNR = float(_env("MATCH_PSNR", "0"))
 
 
 # Per-frame JPEG quality used as the compression-ratio baseline: compression

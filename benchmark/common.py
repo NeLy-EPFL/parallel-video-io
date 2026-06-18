@@ -1,13 +1,11 @@
-"""Shared utilities: timing, memory sampling, result records, environment capture."""
+"""Shared utilities: timing, result records, quality scoring, environment capture."""
 
 from __future__ import annotations
 
 import contextlib
-import gc
 import json
 import platform
 import subprocess
-import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -21,11 +19,11 @@ import torch
 class Result:
     """One benchmark measurement row. Serialised to CSV/JSON by the runner."""
 
-    task: str  # "read_sequential", "read_random", "write", "loading", "loc"
-    backend: str  # e.g. "pvio", "torchcodec_cuda", "decord_cpu", "dali_gpu"
+    task: str  # "encode", "encode_pareto", "random", "sequential"
+    backend: str  # e.g. "pvio_cpu", "torchcodec_cuda", "decord_cpu", "dali_gpu"
     device: str  # "cpu" or "cuda"
-    workload: str  # e.g. video spec name, or "collection"
-    metric_main: float  # primary number (frames/s, or for loc: code lines)
+    workload: str  # video spec name (e.g. "sd_h264", "enc_hd")
+    metric_main: float  # primary number (frames/s)
     metric_unit: str  # "frames/s", "ms/frame", "lines", ...
     extra: dict[str, Any] = field(default_factory=dict)
     error: str | None = None  # set if the backend failed/was skipped
@@ -47,92 +45,6 @@ def timer():
         yield out
     finally:
         out[0] = time.perf_counter() - start
-
-
-def cuda_sync():
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
-
-
-class PeakMemSampler:
-    """Background sampler for peak resident set size (RSS) across this process
-    tree, plus peak CUDA memory via torch's allocator stats.
-
-    RSS is sampled in a thread (covers DataLoader worker subprocesses via the
-    OS, but Python-side we read this process; worker RSS is captured by reading
-    /proc children). CUDA peak is read from torch.cuda.max_memory_allocated.
-    """
-
-    def __init__(self, interval: float = 0.05):
-        self.interval = interval
-        self._stop = threading.Event()
-        self._thread: threading.Thread | None = None
-        self.peak_rss_mb = 0.0
-
-    def _read_tree_rss_kb(self) -> int:
-        # Sum RSS of this process and all descendants from /proc.
-        import os
-
-        pids = [os.getpid()]
-        total = 0
-        seen = set()
-        # Build a children map once per sample (cheap enough at 20 Hz).
-        try:
-            proc = Path("/proc")
-            children: dict[int, list[int]] = {}
-            for p in proc.iterdir():
-                if not p.name.isdigit():
-                    continue
-                try:
-                    ppid = int((p / "stat").read_text().split()[3])
-                except (OSError, ValueError, IndexError):
-                    continue
-                children.setdefault(ppid, []).append(int(p.name))
-            stack = list(pids)
-            while stack:
-                pid = stack.pop()
-                if pid in seen:
-                    continue
-                seen.add(pid)
-                try:
-                    for line in (proc / str(pid) / "status").read_text().splitlines():
-                        if line.startswith("VmRSS:"):
-                            total += int(line.split()[1])
-                            break
-                except OSError:
-                    pass
-                stack.extend(children.get(pid, []))
-        except OSError:
-            pass
-        return total
-
-    def _loop(self):
-        while not self._stop.is_set():
-            rss_mb = self._read_tree_rss_kb() / 1024.0
-            self.peak_rss_mb = max(self.peak_rss_mb, rss_mb)
-            self._stop.wait(self.interval)
-
-    def __enter__(self):
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.reset_peak_memory_stats()
-            torch.cuda.empty_cache()
-        self.peak_rss_mb = 0.0
-        self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
-        return self
-
-    def __exit__(self, *exc):
-        self._stop.set()
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
-
-    @property
-    def peak_cuda_mb(self) -> float:
-        if torch.cuda.is_available():
-            return torch.cuda.max_memory_allocated() / (1024**2)
-        return 0.0
 
 
 def jpeg_baseline_bytes(frames: np.ndarray, quality: int) -> int:

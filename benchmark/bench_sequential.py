@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from . import config, datagen
 from .backends.decode import DECODE_BACKENDS
-from .common import PeakMemSampler, Result, best_of, timer
+from .common import Result, best_of, timer
 
 
 def _bench_sequential(backend, spec) -> Result:
@@ -29,13 +29,11 @@ def _bench_sequential(backend, spec) -> Result:
         backend.sequential(path, spec.n_frames)  # warm-up (caches, codec init)
 
         def run() -> float:
-            with PeakMemSampler() as mem, timer() as t:
+            with timer() as t:
                 n = backend.sequential(path, spec.n_frames)
-            run._mem = mem  # type: ignore[attr-defined]
             return n / t[0]
 
         fps = best_of(run, config.N_REPEATS)
-        mem = run._mem  # type: ignore[attr-defined]
         return Result(
             "sequential",
             backend.name,
@@ -43,11 +41,7 @@ def _bench_sequential(backend, spec) -> Result:
             spec.name,
             fps,
             "frames/s",
-            extra={
-                "peak_rss_mb": round(mem.peak_rss_mb, 1),
-                "peak_cuda_mb": round(mem.peak_cuda_mb, 1),
-                "resolution": f"{spec.height}x{spec.width}",
-            },
+            extra={"resolution": f"{spec.height}x{spec.width}"},
         )
     except Exception as e:
         return Result(

@@ -1,5 +1,13 @@
 """Decoding backends for the random-access and sequential benchmarks.
 
+All CPU decoders are pinned to a **single FFmpeg thread** so the comparison is
+per-core and like-for-like: out of the box OpenCV and Decord decode multithreaded
+(grabbing every core) while TorchCodec/PVIO and PyAV decode single-threaded, which
+otherwise measures "how many cores does this library grab by default" rather than
+decode efficiency. Single-threaded is also PVIO's operating regime — many videos
+decoded in parallel across DataLoader workers, where one thread per decode avoids
+core oversubscription.
+
 Every backend exposes:
 
 * ``available()`` -> (ok, reason)
@@ -9,8 +17,7 @@ Every backend exposes:
 * ``random(path, indices)`` -> ``(k, H, W, 3)`` uint8 RGB ndarray on CPU, used
   for both timing and seek-correctness checking, if ``supports_random``.
 
-These mirror the minimal idiomatic usage of each library and are kept in sync
-with the ``snippets/`` files used for the lines-of-code metric.
+These mirror the minimal idiomatic usage of each library.
 """
 
 from __future__ import annotations
@@ -91,7 +98,11 @@ class _TorchCodec(DecodeBackend):
     def sequential(self, path: str, n_frames: int) -> int:
         from torchcodec.decoders import VideoDecoder
 
-        dec = VideoDecoder(path, seek_mode="approximate", device=self.device)
+        # seek_mode="exact" matches what PVIO's EncodedVideo uses internally, so
+        # pvio_cpu vs torchcodec_cpu isolates wrapper overhead, not seek mode.
+        dec = VideoDecoder(
+            path, seek_mode="exact", device=self.device, num_ffmpeg_threads=1
+        )
         count = 0
         for _ in dec:
             count += 1
@@ -102,7 +113,9 @@ class _TorchCodec(DecodeBackend):
     def random(self, path: str, indices: list[int]) -> np.ndarray:
         from torchcodec.decoders import VideoDecoder
 
-        dec = VideoDecoder(path, seek_mode="exact", device=self.device)
+        dec = VideoDecoder(
+            path, seek_mode="exact", device=self.device, num_ffmpeg_threads=1
+        )
         batch = dec.get_frames_at(indices).data  # NCHW uint8
         return batch.permute(0, 2, 3, 1).cpu().numpy()
 
@@ -140,7 +153,7 @@ class DecordCPU(DecodeBackend):
         import decord
 
         decord.bridge.set_bridge("native")
-        vr = decord.VideoReader(path, ctx=decord.cpu(0))
+        vr = decord.VideoReader(path, ctx=decord.cpu(0), num_threads=1)
         count = 0
         for i in range(len(vr)):
             _ = vr[i]
@@ -151,7 +164,7 @@ class DecordCPU(DecodeBackend):
         import decord
 
         decord.bridge.set_bridge("native")
-        vr = decord.VideoReader(path, ctx=decord.cpu(0))
+        vr = decord.VideoReader(path, ctx=decord.cpu(0), num_threads=1)
         out = []
         for idx in indices:
             vr.seek_accurate(int(idx))  # frame-accurate seek
@@ -223,7 +236,7 @@ class OpenCVCPU(DecodeBackend):
     def sequential(self, path: str, n_frames: int) -> int:
         import cv2
 
-        cap = cv2.VideoCapture(path)
+        cap = cv2.VideoCapture(path, cv2.CAP_FFMPEG, [cv2.CAP_PROP_N_THREADS, 1])
         count = 0
         while True:
             ok, _ = cap.read()
@@ -236,7 +249,7 @@ class OpenCVCPU(DecodeBackend):
     def random(self, path: str, indices: list[int]) -> np.ndarray:
         import cv2
 
-        cap = cv2.VideoCapture(path)
+        cap = cv2.VideoCapture(path, cv2.CAP_FFMPEG, [cv2.CAP_PROP_N_THREADS, 1])
         out = []
         for idx in indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))

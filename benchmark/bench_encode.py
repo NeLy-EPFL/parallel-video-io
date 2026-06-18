@@ -2,12 +2,15 @@
 
 Metrics: encode throughput (frames/s) and compression ratio, defined as
 (sum of per-frame JPEG bytes) / (encoded video bytes) — i.e. how much smaller
-the video is than a folder of per-frame JPEGs at the same quality. We also
-record PSNR/SSIM so the speed/size numbers can be read at matched quality.
+the video is than a folder of per-frame JPEGs at the same quality. PSNR/SSIM
+are recorded for every point so the speed/size numbers can be read at matched
+image quality.
 
-Two result sets are produced: a single operating point per backend at a common
-quality (``encode``), and a quality sweep over the tunable encoders
-(``encode_pareto``) that traces each one's speed-vs-compression frontier.
+A single result set is produced: a quality sweep over each encoder
+(``encode_pareto``) that traces its speed-vs-compression frontier. Encoders are
+*not* compared at a shared quality number — CRF (libx264) and QP (NVENC) are
+different operating points — so the runner derives a matched-PSNR comparison
+from this sweep instead (see ``run_all`` / ``plots``).
 """
 
 from __future__ import annotations
@@ -98,16 +101,8 @@ def run() -> list[Result]:
         frames = raw_frames(spec)
         jpeg_bytes = jpeg_baseline_bytes(frames, config.JPEG_QUALITY)
 
-        # Single operating point at a common quality ("similar effective params").
-        for backend in ENCODE_BACKENDS:
-            print(f"  [encode] {spec.name:8s} {backend.name}")
-            results.append(
-                _bench_point(
-                    backend, spec, frames, config.DEFAULT_QUALITY, jpeg_bytes, "encode"
-                )
-            )
-
-        # Quality sweep -> speed-vs-compression Pareto front (tunable encoders).
+        # Quality sweep -> speed-vs-compression frontier per encoder. A matched-
+        # PSNR comparison is derived from these points downstream.
         for backend in ENCODE_BACKENDS:
             if not backend.tunable:
                 continue

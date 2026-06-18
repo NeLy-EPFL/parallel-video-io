@@ -13,9 +13,13 @@ mkdocs gh-deploy
 See [`benchmark/README.md`](https://github.com/NeLy-EPFL/parallel-video-io/blob/main/benchmark/README.md)
 for full methodology, metric definitions, and backend notes.
 
-## Throughput and compression ratio vs quality
+## Encode throughput and compression ratio vs quality
 
 --8<-- "benchmark/results/figures/encode_quality.html"
+
+## Encode at matched image quality
+
+--8<-- "benchmark/results/figures/encode_matched.html"
 
 ## Decode throughput
 

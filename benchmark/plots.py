@@ -3,6 +3,15 @@
 Reads ``benchmark/results/results.csv`` (or an in-memory DataFrame) and writes
 interactive HTML figures to ``benchmark/results/figures``. Figures are embedded
 in the docs site via pymdownx.snippets; plotly.js is loaded from CDN.
+
+Figures produced:
+
+* ``encode_quality.html`` — throughput and compression vs PSNR (the quality
+  sweep), per encoder.
+* ``encode_matched.html`` — throughput and compression at matched PSNR (a fair
+  single operating point, interpolated from the sweep).
+* ``decode_throughput.html`` — sequential and random-access throughput across
+  all decode workloads.
 """
 
 from __future__ import annotations
@@ -13,7 +22,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from .config import FIGURES_DIR, RESULTS_DIR
+from . import analysis
+from .config import FIGURES_DIR, MATCH_PSNR, RESULTS_DIR
 
 _QUALITY_PARAM_LABEL = {"pvio_gpu": "QP", "opencv": "JPEG Q"}  # all others use CRF
 
@@ -87,7 +97,16 @@ def _color(backend: str) -> str:
     return _BACKEND_COLOR.get(backend, "#888888")
 
 
-# Legend group keys and display names for the decode bar chart.
+def _decode_workloads(df: pd.DataFrame) -> list[str]:
+    """Decode workloads present in the data, ordered SD, HD, Full HD."""
+    seen = set()
+    for task in ("sequential", "random"):
+        seen |= set(_ok(df[df["task"] == task])["workload"].unique())
+    order = {"sd_h264": 0, "hd_h264": 1, "fhd_h264": 2}
+    return sorted(seen, key=lambda w: (order.get(w, 99), w))
+
+
+# Legend group keys and display names for the bar charts.
 # All non-PVIO CPU backends share one legend entry; same for GPU.
 def _legend_group(backend: str) -> str:
     if backend == "pvio_cpu":
@@ -112,11 +131,56 @@ def _save(fig: go.Figure, name: str) -> Path:
     return path
 
 
+def _bar_panel(
+    fig,
+    panel: pd.DataFrame,
+    value_col: str,
+    row: int,
+    col: int,
+    n_cols: int,
+    all_backends: list[str],
+    shown_lg: set[str],
+    unit: str,
+) -> None:
+    """Draw one grouped-bar panel (one bar per backend) with CPU/GPU separator.
+
+    Shared by the decode-throughput and memory figures; legend entries are
+    grouped (PVIO CPU/GPU + Other CPU/GPU) and shown once across the figure.
+    """
+    backends = [b for b in all_backends if not panel[panel["backend"] == b].empty]
+    n_cpu = sum(1 for b in backends if b not in _IS_GPU)
+    for backend in backends:
+        g = panel[panel["backend"] == backend]
+        lg = _legend_group(backend)
+        fig.add_trace(
+            go.Bar(
+                name=_LEGEND_GROUP_NAME[lg],
+                x=[_be(backend)],
+                y=[float(g[value_col].iloc[0])],
+                marker_color=_color(backend),
+                legendgroup=lg,
+                showlegend=(lg not in shown_lg),
+                hovertemplate=f"<b>{_be(backend)}</b><br>%{{y:.1f}} {unit}<extra></extra>",
+            ),
+            row=row, col=col,
+        )
+        shown_lg.add(lg)
+    # Dashed separator between CPU and GPU groups when both are present.
+    if 0 < n_cpu < len(backends):
+        panel_idx = (row - 1) * n_cols + col
+        xax = "x" if panel_idx == 1 else f"x{panel_idx}"
+        yax = "y" if panel_idx == 1 else f"y{panel_idx}"
+        fig.add_shape(
+            type="line", x0=n_cpu - 0.5, x1=n_cpu - 0.5, y0=0, y1=1,
+            xref=xax, yref=f"{yax} domain",
+            line=dict(color="rgba(100,100,100,0.35)", width=1, dash="dot"),
+        )
+
+
 def plot_encode_quality(df, out: list[Path]):
     sub = _ok(df[df["task"] == "encode_pareto"]).copy()
     if sub.empty:
         return
-    # SD first, then HD
     workloads = sorted(sub["workload"].unique(), key=lambda w: (0 if "sd" in w else 1, w))
     backends = sorted(sub["backend"].unique(), key=_pvio_first)
     metrics = [
@@ -170,12 +234,79 @@ def plot_encode_quality(df, out: list[Path]):
             fig.update_yaxes(title_text=metrics[0][1], row=row_idx, col=1)
             fig.update_yaxes(title_text=metrics[1][1], row=row_idx, col=2)
     fig.update_layout(
-        title="Encode throughput and compression ratio vs quality",
+        title="Encode throughput and compression ratio vs quality (PSNR)",
         hovermode="closest",
-        height=700,
+        height=350 * len(workloads),
         legend_title_text="Backend",
     )
     out.append(_save(fig, "encode_quality.html"))
+
+
+def plot_encode_matched(df, out: list[Path]):
+    """Throughput and compression at matched PSNR — a fair single operating point."""
+    matched = analysis.matched_psnr(df, MATCH_PSNR)
+    if matched.empty:
+        return
+    workloads = sorted(matched["workload"].unique(), key=lambda w: (0 if "sd" in w else 1, w))
+    all_backends = sorted(matched["backend"].unique(), key=_decode_order)
+    metrics = [
+        ("metric_main",         "Throughput (frames/s)", "fps"),
+        ("x_compression_ratio", "Compression ratio (×)", "×"),
+    ]
+    subplot_titles = [
+        f"{_wl(wl)} — {label.split('(')[0].strip()}"
+        for wl in workloads
+        for _, label, _ in metrics
+    ]
+    fig = make_subplots(rows=len(workloads), cols=2, subplot_titles=subplot_titles)
+    shown_lg: set[str] = set()
+    for row_idx, workload in enumerate(workloads, start=1):
+        panel = matched[matched["workload"] == workload]
+        backends = [b for b in all_backends if not panel[panel["backend"] == b].empty]
+        n_cpu = sum(1 for b in backends if b not in _IS_GPU)
+        for col_idx, (col_name, label, unit) in enumerate(metrics, start=1):
+            for backend in backends:
+                g = panel[panel["backend"] == backend]
+                lg = _legend_group(backend)
+                matched_ok = bool(g["x_psnr_matched"].iloc[0])
+                eff = float(g["x_psnr_db"].iloc[0])
+                fig.add_trace(
+                    go.Bar(
+                        name=_LEGEND_GROUP_NAME[lg],
+                        x=[_be(backend)],
+                        y=[float(g[col_name].iloc[0])],
+                        marker_color=_color(backend),
+                        legendgroup=lg,
+                        showlegend=(lg not in shown_lg),
+                        hovertemplate=(
+                            f"<b>{_be(backend)}</b><br>%{{y:.1f}} {unit}<br>"
+                            f"PSNR {eff:.1f} dB"
+                            + ("" if matched_ok else " (off-target — knob did not reach it)")
+                            + "<extra></extra>"
+                        ),
+                    ),
+                    row=row_idx, col=col_idx,
+                )
+                shown_lg.add(lg)
+            if 0 < n_cpu < len(backends):
+                panel_idx = (row_idx - 1) * 2 + col_idx
+                xax = "x" if panel_idx == 1 else f"x{panel_idx}"
+                yax = "y" if panel_idx == 1 else f"y{panel_idx}"
+                fig.add_shape(
+                    type="line", x0=n_cpu - 0.5, x1=n_cpu - 0.5, y0=0, y1=1,
+                    xref=xax, yref=f"{yax} domain",
+                    line=dict(color="rgba(100,100,100,0.35)", width=1, dash="dot"),
+                )
+            fig.update_yaxes(title_text=label, row=row_idx, col=col_idx)
+    tgt = matched["x_target_psnr"].iloc[0]
+    label = f"{MATCH_PSNR:.0f} dB" if MATCH_PSNR > 0 else f"≈{tgt:.0f} dB (auto)"
+    fig.update_layout(
+        title=f"Encode at matched image quality (target PSNR {label})  ·  blue = CPU, pink = GPU",
+        barmode="group",
+        height=350 * len(workloads),
+        legend_title_text="Backend",
+    )
+    out.append(_save(fig, "encode_matched.html"))
 
 
 def plot_decode(df, out: list[Path]):
@@ -183,83 +314,34 @@ def plot_decode(df, out: list[Path]):
         ("sequential", "Sequential"),
         ("random",     "Precise random-access"),
     ]
-    WORKLOADS = ["sd_h264", "hd_h264"]  # SD first (consistent with encode quality plot)
-
+    workloads = _decode_workloads(df)
+    if not workloads:
+        return
     subplot_titles = [
         f"{_wl(wl)} — {task_label}"
-        for wl in WORKLOADS
+        for wl in workloads
         for _, task_label in TASKS
     ]
-    n_rows, n_cols = len(WORKLOADS), len(TASKS)
+    n_rows, n_cols = len(workloads), len(TASKS)
     fig = make_subplots(rows=n_rows, cols=n_cols, subplot_titles=subplot_titles)
 
-    # All backends that succeeded in at least one task, CPU-first ordering
     all_backends = sorted(
         {b for tk, _ in TASKS for b in _ok(df[df["task"] == tk])["backend"].unique()},
         key=_decode_order,
     )
-
-    # Each legend group (pvio_cpu, other_cpu, pvio_gpu, other_gpu) appears once.
     shown_lg: set[str] = set()
-
-    for row_idx, workload in enumerate(WORKLOADS, start=1):
-        wl_display = _wl(workload)
+    for row_idx, workload in enumerate(workloads, start=1):
         for col_idx, (task_key, _) in enumerate(TASKS, start=1):
             sub = _ok(df[df["task"] == task_key])
-            wl_data = sub[sub["workload"] == workload]
-
-            # Backends present in this panel, in CPU→GPU order
-            panel_backends = [b for b in all_backends if not wl_data[wl_data["backend"] == b].empty]
-            n_cpu = sum(1 for b in panel_backends if b not in _IS_GPU)
-
-            for backend in panel_backends:
-                g = wl_data[wl_data["backend"] == backend]
-                display = _be(backend)
-                color = _color(backend)
-                lg = _legend_group(backend)
-                fig.add_trace(
-                    go.Bar(
-                        name=_LEGEND_GROUP_NAME[lg],
-                        x=[display],
-                        y=[float(g["metric_main"].iloc[0])],
-                        marker_color=color,
-                        legendgroup=lg,
-                        showlegend=(lg not in shown_lg),
-                        hovertemplate=(
-                            f"<b>{display}</b><br>"
-                            f"Workload: {wl_display}<br>"
-                            "Throughput: %{y:.0f} fps"
-                            "<extra></extra>"
-                        ),
-                    ),
-                    row=row_idx, col=col_idx,
-                )
-                shown_lg.add(lg)
-
-            fig.update_yaxes(
-                title_text="Throughput (frames/s)", row=row_idx, col=col_idx
-            )
-
-            # Dashed separator between CPU and GPU groups when both are present
-            if n_cpu > 0 and n_cpu < len(panel_backends):
-                panel_idx = (row_idx - 1) * n_cols + col_idx
-                xax = "x" if panel_idx == 1 else f"x{panel_idx}"
-                yax = "y" if panel_idx == 1 else f"y{panel_idx}"
-                fig.add_shape(
-                    type="line",
-                    x0=n_cpu - 0.5,
-                    x1=n_cpu - 0.5,
-                    y0=0,
-                    y1=1,
-                    xref=xax,
-                    yref=f"{yax} domain",
-                    line=dict(color="rgba(100,100,100,0.35)", width=1, dash="dot"),
-                )
+            panel = sub[sub["workload"] == workload]
+            _bar_panel(fig, panel, "metric_main", row_idx, col_idx, n_cols,
+                       all_backends, shown_lg, "fps")
+            fig.update_yaxes(title_text="Throughput (frames/s)", row=row_idx, col=col_idx)
 
     fig.update_layout(
         title="Decode throughput  (blue = CPU · pink = GPU)",
         hovermode="closest",
-        height=700,
+        height=320 * n_rows,
         legend_title_text="Backend",
     )
     out.append(_save(fig, "decode_throughput.html"))
@@ -275,6 +357,7 @@ def generate(df: pd.DataFrame | None = None) -> list[Path]:
         df["error"] = pd.NA
     out: list[Path] = []
     plot_encode_quality(df, out)
+    plot_encode_matched(df, out)
     plot_decode(df, out)
     return out
 
