@@ -273,8 +273,19 @@ class VideoCollectionDataLoader(DataLoader):
     @staticmethod
     def _collate(batch):
         """Receives a list of frame dicts, returns a batched dict"""
+        frames = [item["frame"] for item in batch]
+        # A collection may mix GPU-decoded videos (EncodedVideo on CUDA) with
+        # CPU-decoded ones (e.g. ImageDirVideo), producing frames on different
+        # devices that cannot be stacked directly. Promote everything to a CUDA
+        # device when any frame is already there, keeping the batch GPU-resident.
+        if len({f.device for f in frames}) > 1:
+            target = next(
+                (f.device for f in frames if f.device.type == "cuda"),
+                frames[0].device,
+            )
+            frames = [f.to(target) for f in frames]
         return {
-            "frames": torch.stack([item["frame"] for item in batch]),
+            "frames": torch.stack(frames),
             "video_indices": [item["video_id"] for item in batch],
             "frame_indices": [item["frame_id"] for item in batch],
         }
@@ -292,6 +303,7 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
         n_frame_counting_workers: int = -1,
         progress_bar: bool | None = None,
         min_frames_per_worker: int = 300,
+        device: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Create a VideoCollectionDataset and VideoCollectionDataLoader in one call.
@@ -300,6 +312,13 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
         or a path (str / Path). Paths pointing to files become
         :class:`EncodedVideo`; paths pointing to directories become
         :class:`ImageDirVideo`.
+
+        The decode workflow is selected automatically: on a machine with a CUDA
+        GPU, file-backed videos decode on the GPU (NVDEC) and iteration runs in
+        the main process (``num_workers`` is forced to 0, since CUDA cannot be
+        used in forked workers); on a CPU-only machine, decoding uses the
+        requested number of CPU workers as before. Pass ``device="cpu"`` to opt
+        out and keep multi-worker CPU decoding even when a GPU is present.
 
         Args:
             videos: Video sources.
@@ -317,6 +336,9 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
                 Defaults to ``True`` when stderr is a TTY.
             min_frames_per_worker: Minimum frames per worker; see
                 :meth:`VideoCollectionDataset.assign_workers`.
+            device: Decode device for file-backed videos, forwarded to
+                :class:`EncodedVideo`. ``None`` (default) auto-selects the GPU
+                when available; ``"cpu"``/``"cuda"`` force a choice.
             **kwargs: Forwarded to :class:`~torch.utils.data.DataLoader`.
         """
         logger.info(
@@ -327,7 +349,40 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
             buffer_size=buffer_size,
             frame_id_regex=frame_id_regex,
             use_cached_video_metadata=use_cached_video_metadata,
+            device=device,
         )
+
+        # Resolve num_workers (and pin_memory) once, up front. On the GPU decode
+        # path iteration must run in the main process — CUDA cannot be initialised
+        # in forked DataLoader workers — so any CUDA-backed video forces
+        # num_workers=0. Otherwise a negative spec follows the joblib convention
+        # (-1 = all cores) and 0 is left as the standard main-process default
+        # (VideoCollectionDataLoader still calls assign_workers(1) for it).
+        gpu_decode = any(
+            isinstance(v, EncodedVideo) and str(v.device).startswith("cuda")
+            for v in video_objects
+        )
+        requested_workers = kwargs.get("num_workers", 0)  # 0 is the DataLoader default
+        if gpu_decode:
+            if requested_workers not in (0, None):
+                logger.info(
+                    "GPU decoding selected; forcing num_workers=0 so iteration runs "
+                    "in the main process (was %s). CUDA cannot be used in forked "
+                    "DataLoader workers. Pass device='cpu' to keep CPU multi-worker "
+                    "loading.",
+                    requested_workers,
+                )
+            kwargs["num_workers"] = 0
+            # Frames are already GPU-resident, so host-memory pinning is both
+            # pointless and impossible (pin_memory cannot pin CUDA tensors).
+            if kwargs.get("pin_memory"):
+                logger.info(
+                    "GPU decoding selected; disabling pin_memory (frames are already "
+                    "on the GPU, so there is nothing to pin)."
+                )
+            kwargs["pin_memory"] = False
+        elif requested_workers not in (0, None):
+            kwargs["num_workers"] = _resolve_n_workers_spec(requested_workers)
 
         logger.info(f"Creating VideoCollectionDataset with {len(video_objects)} videos")
         dataset = VideoCollectionDataset(
@@ -338,12 +393,6 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
             progress_bar=progress_bar,
         )
 
-        num_workers = kwargs.get("num_workers", 0)  # 0 is normal DataLoader default
-        if num_workers != 0:
-            kwargs["num_workers"] = _resolve_n_workers_spec(num_workers)
-        # num_workers=0 is passed through as-is; VideoCollectionDataLoader handles it by
-        # running in the main process while still calling assign_workers(1)
-
         logger.info("Creating VideoCollectionDataLoader")
         super().__init__(dataset, min_frames_per_worker=min_frames_per_worker, **kwargs)
 
@@ -353,6 +402,7 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
         buffer_size: int,
         frame_id_regex: str | re.Pattern | None,
         use_cached_video_metadata: bool,
+        device: str | None = None,
     ) -> list[Video]:
         videos_resolved = []
         for video_spec in video_specs:
@@ -374,6 +424,7 @@ class SimpleVideoCollectionLoader(VideoCollectionDataLoader):
                         buffer_size=buffer_size,
                         cache_metadata=True,  # will be cached anyway upon dataset init
                         use_cached_metadata=use_cached_video_metadata,
+                        device=device,
                     )
                 else:
                     raise FileNotFoundError(f"Video path {path} does not exist.")
@@ -403,30 +454,24 @@ def _resolve_n_workers_spec(n_workers: int) -> int:
         ValueError: If *n_workers* is less than ``-n_cpu_cores``.
     """
     n_cpu_cores = cpu_count()
-    n_workers_resolved = None
 
-    if n_workers < -n_cpu_cores:
-        pass  # cannot resolve
-    elif -n_cpu_cores <= n_workers < 0:
-        n_workers_resolved = n_workers + n_cpu_cores + 1
-        logger.info(
-            f"n_workers_spec={n_workers} interpreted as {n_workers_resolved} workers "
-            f"(n_cpu_cores={n_cpu_cores})."
-        )
-    elif n_workers == 0:
+    if n_workers > 0:
+        return n_workers
+    if n_workers == 0:
         logger.info(
             "n_workers_spec=0 interpreted as 1 worker. Processing in main thread not "
             "implemented; will use a single worker process/thread instead."
         )
         return 1
-    elif n_workers > 0:
-        return n_workers
-    else:
-        pass  # cannot resolve (n_workers < -n_cpu_cores)
-
-    if n_workers_resolved is None:
+    if n_workers < -n_cpu_cores:
         raise ValueError(
             f"Invalid n_workers_spec={n_workers}. Must be >= {-n_cpu_cores} "
             f"(n_cpu_cores={n_cpu_cores})."
         )
+    # Negative within range: follow the joblib convention (-1 = all cores).
+    n_workers_resolved = n_workers + n_cpu_cores + 1
+    logger.info(
+        f"n_workers_spec={n_workers} interpreted as {n_workers_resolved} workers "
+        f"(n_cpu_cores={n_cpu_cores})."
+    )
     return n_workers_resolved

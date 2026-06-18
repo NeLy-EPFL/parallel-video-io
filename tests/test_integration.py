@@ -169,9 +169,6 @@ def test_parallel_worker_functionality(tmp_path: Path):
         frames.append(frame)
     write_frames_to_video(video_path, frames, fps=10.0)
 
-    video = EncodedVideo(video_path)
-    ds = VideoCollectionDataset([video])
-
     # Use SimpleVideoCollectionLoader with explicit min_frames_per_worker
     loader = SimpleVideoCollectionLoader(
         [video_path],

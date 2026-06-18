@@ -5,14 +5,16 @@ import imageio.v2 as imageio
 import numpy as np
 from abc import abstractmethod, ABC
 from time import time
-from typing import Any, Callable
+from typing import Callable
 from torchcodec.decoders import VideoDecoder
+from torch.utils.data import get_worker_info
 from pathlib import Path
 import os
 import tempfile
 import fcntl
 
 from .io import get_video_metadata
+from . import _accel
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,26 @@ logger = logging.getLogger(__name__)
 _DECODER_INIT_LOCK_PATH = (
     Path(tempfile.gettempdir()) / f"pvio_decoder_init.{os.getuid()}.lock"
 )
+
+
+def _chw_to_float01(
+    frame: torch.Tensor, transform: Callable | None = None
+) -> torch.Tensor:
+    """Convert a CHW frame tensor to float32 in ``[0, 1]`` and apply *transform*.
+
+    Integer frames are divided by their dtype's maximum (255 for ``uint8``, 65535
+    for ``uint16``, ...), so 16-bit images such as scientific TIFFs are scaled
+    correctly instead of being assumed 8-bit. Floating-point frames are passed
+    through as float32 unchanged (assumed already normalised). Shared by all
+    backends so normalisation behaves identically everywhere.
+    """
+    if frame.is_floating_point():
+        frame = frame.float()
+    else:
+        frame = frame.float() / torch.iinfo(frame.dtype).max
+    if transform is not None:
+        frame = transform(frame)
+    return frame
 
 
 class Video(ABC):
@@ -86,19 +108,16 @@ class Video(ABC):
             )
             return (0, n_frames_source_video)
 
-    def setup(self, *args: Any, **kwargs: Any) -> None:
+    def setup(self) -> None:
         """Validate arguments, load metadata, and prepare this video for reading.
 
         Must be called after ``__init__`` and before reading frames. Calling
         :meth:`read_frame` without a prior ``setup`` triggers an automatic
         setup with a warning.
 
-        Args:
-            *args: Forwarded to :meth:`_post_setup`.
-            **kwargs: Forwarded to :meth:`_post_setup`.
-
         Raises:
-            RuntimeError: If :meth:`_post_setup` reports failure.
+            Exception: Whatever the backend's :meth:`_validate_init_params`,
+                :meth:`_load_metadata`, or :meth:`_post_setup` raises on failure.
         """
         if self.__setup_done:
             logger.warning(
@@ -123,13 +142,8 @@ class Video(ABC):
         self.frame_range_effective = resolved_range
         self.n_frames_in_range = resolved_range[1] - resolved_range[0]
 
-        # Post-setup hook for backend subclasses
-        post_setup_success = self._post_setup(*args, **kwargs)
-        if not post_setup_success:
-            raise RuntimeError(
-                f"Backend subclass {self.__class__.__name__} failed to complete "
-                f"post-setup operations (`._post_setup()`)."
-            )
+        # Post-setup hook for backend subclasses; raises on failure.
+        self._post_setup()
 
         self.__setup_done = True
 
@@ -183,10 +197,11 @@ class Video(ABC):
         pass
 
     # THE FOLLOWING METHODS CAN BE **OPTIONALLY** IMPLEMENTED BY BACKEND SUBCLASSES
-    def _post_setup(self, *args: Any, **kwargs: Any) -> bool:
-        """Optional backend-specific logic to be called at the end of `.setup()`.
-        Should return True if setup is successful, False otherwise."""
-        return True
+    def _post_setup(self) -> None:
+        """Optional backend-specific logic run at the end of `.setup()`.
+
+        Raise on failure; the default is a no-op."""
+        return
 
     def close(self) -> None:
         """Release any resources held by this Video object."""
@@ -201,6 +216,7 @@ class EncodedVideo(Video):
         buffer_size: int = 64,
         cache_metadata: bool = True,
         use_cached_metadata: bool = True,
+        device: str | None = None,
     ):
         """Video backend for "real" video files (e.g., mp4, mkv, etc.) using TorchCodec.
 
@@ -216,11 +232,24 @@ class EncodedVideo(Video):
                 subsequent metadata reads.
             use_cached_metadata (bool): Whether to use cached metadata when available.
                 Set to False to force re-load metadata.
+            device (str | None): Decode device for TorchCodec. ``None`` (default)
+                or ``"auto"`` auto-selects ``"cuda"`` when a CUDA GPU is available
+                and ``"cpu"`` otherwise; pass ``"cpu"`` or ``"cuda"`` to force a
+                choice. Exact
+                (frame-accurate) seeking is preserved on either device. GPU
+                decoding returns frames already resident in GPU memory. Note that
+                CUDA cannot be initialised inside forked DataLoader worker
+                processes, so when this object is iterated under
+                ``num_workers > 0`` the decoder automatically downgrades to CPU in
+                the workers; use the single-process path (``num_workers=0``, as
+                ``SimpleVideoCollectionLoader`` arranges automatically) to keep
+                decoding on the GPU.
         """
         super().__init__(path, frame_range)
         self.buffer_size = buffer_size
         self.cache_metadata = cache_metadata
         self.use_cached_metadata = use_cached_metadata
+        self.device = _accel.resolve_decode_device(device)
 
         # The following are to be managed by `.read_frame()`
         self._decoder: VideoDecoder | None = None
@@ -240,28 +269,33 @@ class EncodedVideo(Video):
             cache_metadata=self.cache_metadata,
             use_cached_metadata=self.use_cached_metadata,
         )
-        n_frames_total = metadata["n_frames"]
-        frame_size = metadata["frame_size"]
-        fps = metadata["fps"]
+        n_frames_total = metadata.n_frames
+        frame_size = metadata.frame_size
+        fps = metadata.fps
 
         walltime = time() - start_time
         logger.debug(f"Loaded metadata for video {self.path} in {walltime:.2f}s.")
 
         return n_frames_total, frame_size, fps
 
-    def _read_frame(self, index: int, transform: Callable | None) -> torch.Tensor:
+    def _read_frame(
+        self, index: int, transform: Callable | None = None
+    ) -> torch.Tensor:
         # If this is the first time reading from this video, initialize the decoder
         if self._decoder is None:
-            self._decoder = self._create_video_decoder(self.path)
+            self._decoder, self.device = self._create_video_decoder(
+                self.path, self.device
+            )
 
         vir_frame_id = index  # `index` is the virtual frame_id - make alias for clarity
 
-        # If requested frame is already in buffer, apply transform and return
+        # If requested frame is already in buffer, normalize, apply transform, return.
+        # The buffer holds raw uint8 frames; normalization happens per access so the
+        # buffer stays 4x smaller than a float32 buffer would (this is what lets a
+        # 64-frame buffer of high-resolution frames fit in GPU memory) and so the
+        # cached frame is never contaminated by a previously-applied transform.
         if vir_frame_id in self._buffer:
-            frame = self._buffer[vir_frame_id]
-            if transform is not None:
-                frame = transform(frame)
-            return frame
+            return _chw_to_float01(self._buffer[vir_frame_id], transform)
 
         # Buffer has expired - expunge & refill
         # (loading many frames at once reduces decoding overhead)
@@ -273,18 +307,42 @@ class EncodedVideo(Video):
         phy_frame_ids_to_buffer = (
             vir_frame_ids_to_buffer + self.frame_range_effective[0]
         )
-        batch_frames = self._decoder.get_frames_at(phy_frame_ids_to_buffer).data  # NCHW
-        batch_frames = batch_frames.float() / 255.0  # normalize to [0, 1]
+        batch_frames = self._decode_buffer(phy_frame_ids_to_buffer)  # NCHW uint8
         for i, _vfid in enumerate(vir_frame_ids_to_buffer):
-            self._buffer[_vfid] = batch_frames[i, ...]  # store pre-transform
+            self._buffer[_vfid] = batch_frames[i, ...]  # store raw uint8
 
-        frame = self._buffer[vir_frame_id]
-        if transform is not None:
-            frame = transform(frame)
-        return frame
+        return _chw_to_float01(self._buffer[vir_frame_id], transform)
+
+    def _decode_buffer(self, phy_frame_ids: np.ndarray) -> torch.Tensor:
+        """Decode a batch of physical frame ids, with a GPU-OOM safety net.
+
+        Decoding a buffer of large frames on the GPU can exhaust device memory
+        (e.g. a 64-frame buffer of 4K frames is several GB). When that happens,
+        permanently switch this video to CPU decoding and retry, rather than
+        crashing — throughput drops for this video but results are still
+        produced. Non-OOM errors propagate unchanged.
+        """
+        try:
+            return self._decoder.get_frames_at(phy_frame_ids).data  # NCHW uint8
+        except torch.cuda.OutOfMemoryError:
+            if not str(self.device).startswith("cuda"):
+                raise
+            logger.warning(
+                "GPU ran out of memory decoding %s (buffer_size=%d at this "
+                "resolution is too large for device memory); falling back to CPU "
+                "decoding for this video. Reduce buffer_size to keep GPU decoding.",
+                self.path,
+                self.buffer_size,
+            )
+            self._decoder = None
+            torch.cuda.empty_cache()
+            self._decoder, self.device = self._create_video_decoder(self.path, "cpu")
+            return self._decoder.get_frames_at(phy_frame_ids).data
 
     @staticmethod
-    def _create_video_decoder(video_path: Path) -> VideoDecoder:
+    def _create_video_decoder(
+        video_path: Path, device: str = "cpu"
+    ) -> tuple[VideoDecoder, str]:
         """Create a TorchCodec VideoDecoder while holding a shared init lock.
 
         Historically, constructing decoders concurrently across worker processes
@@ -303,13 +361,54 @@ class EncodedVideo(Video):
         previous per-instance lock, which never serialized workers decoding
         different videos. It is held only during construction; frame reads run fully
         in parallel. See
-        https://ffmpeg.org/pipermail/libav-user/2014-August/007298.html"""
+        https://ffmpeg.org/pipermail/libav-user/2014-August/007298.html
+
+        ``device`` selects CPU or CUDA (NVDEC) decoding; ``seek_mode="exact"`` keeps
+        frame-accurate seeking on either. CUDA cannot be initialised inside a forked
+        DataLoader worker, so a ``"cuda"`` request is downgraded to ``"cpu"`` when
+        running in a worker subprocess. As a final safety net, a failed GPU decoder
+        construction falls back to CPU rather than propagating the error.
+
+        Returns ``(decoder, effective_device)``: the effective device may differ
+        from the requested *device* when either downgrade above fired, so the
+        caller can keep its own ``device`` attribute in sync with reality."""
+        if device.startswith("cuda") and get_worker_info() is not None:
+            # Forked DataLoader workers cannot (re)initialise CUDA. Decode on CPU
+            # here; the GPU path is intended for single-process iteration.
+            logger.debug(
+                "Running inside a DataLoader worker; decoding %s on CPU instead of %s.",
+                video_path,
+                device,
+            )
+            device = "cpu"
+
         with open(_DECODER_INIT_LOCK_PATH, "w") as lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-            decoder = VideoDecoder(
-                video_path.as_posix(), seek_mode="exact", dimension_order="NCHW"
-            )
-        return decoder
+            try:
+                decoder = VideoDecoder(
+                    video_path.as_posix(),
+                    seek_mode="exact",
+                    dimension_order="NCHW",
+                    device=device,
+                )
+            except Exception as e:
+                if device == "cpu":
+                    raise
+                logger.warning(
+                    "GPU decoder construction failed for %s on device %r (%s); "
+                    "falling back to CPU decoding.",
+                    video_path,
+                    device,
+                    e,
+                )
+                decoder = VideoDecoder(
+                    video_path.as_posix(),
+                    seek_mode="exact",
+                    dimension_order="NCHW",
+                    device="cpu",
+                )
+                device = "cpu"
+        return decoder, device
 
     def close(self):
         # VideoDecoder from torchcodec doesn't have a "close" method - just let Python
@@ -347,6 +446,10 @@ class ImageDirVideo(Video):
             frame_id_regex = re.compile(frame_id_regex)
         self.frame_id_regex: re.Pattern | None = frame_id_regex
 
+        # Directory listing cached by `._load_metadata()` and reused by
+        # `._post_setup()` so the directory is scanned only once.
+        self._image_files: list[Path] = []
+
         # The following mappings are to be populated in `._post_setup()`
         self.phy_frame_id_to_path: dict[int, Path] = {}
         self.vir_frame_id_to_path: dict[int, Path] = {}
@@ -379,7 +482,7 @@ class ImageDirVideo(Video):
                 f"A directory containing individual frame images is expected."
             )
 
-    def _post_setup(self, *args: Any, **kwargs: Any) -> bool:
+    def _post_setup(self) -> None:
         """Build the virtual/physical frame-id ↔ path mappings.
         Called after frame_range_effective is resolved so the mapping can be
         restricted to the requested range.
@@ -389,7 +492,7 @@ class ImageDirVideo(Video):
         regex and no-regex branches use this positional convention, so a frame_range
         always selects a contiguous slice of the ordered sequence. See the class
         docstring for the rationale."""
-        all_paths = [path for path in self.path.iterdir() if path.is_file()]
+        all_paths = self._image_files  # cached by _load_metadata; scanned once
         start, end = self.frame_range_effective
 
         if self.frame_id_regex is None:
@@ -417,11 +520,10 @@ class ImageDirVideo(Video):
                     self.frame_id_vir2phy[vir_frame_id] = phy_frame_id
                     self.frame_id_phy2vir[phy_frame_id] = vir_frame_id
 
-        return True  # mark success
-
     def _load_metadata(self) -> tuple[int, tuple[int, int], float]:
-        all_files = [f for f in self.path.iterdir() if f.is_file()]
-        n_frames_total = len(all_files)  # n total images in dir (not just in range)
+        # Scan the directory once and cache it for `._post_setup()`.
+        self._image_files = [f for f in self.path.iterdir() if f.is_file()]
+        n_frames_total = len(self._image_files)  # total images (not just in range)
         if n_frames_total == 0:
             raise ValueError(f"No image files found in directory {self.path}.")
 
@@ -429,24 +531,24 @@ class ImageDirVideo(Video):
         # files in OS-defined order. For well-formed datasets all frames share the same
         # size, so this is fine in practice; if sizes differ the reported frame_size may
         # not reflect the majority or the first frame by sort order.
-        sample_frame = imageio.imread(all_files[0])
+        sample_frame = imageio.imread(self._image_files[0])
         frame_size = sample_frame.shape[:2]
 
         fps = None  # not applicable for image directories
 
         return n_frames_total, frame_size, fps
 
-    def _read_frame(self, index: int, transform: Callable | None) -> torch.Tensor:
+    def _read_frame(
+        self, index: int, transform: Callable | None = None
+    ) -> torch.Tensor:
         vir_frame_id = index  # `index` is the virtual frame_id - make alias for clarity
         if vir_frame_id not in self.vir_frame_id_to_path:
             raise IndexError(f"Frame index {index} out of bounds")
         frame_path = self.vir_frame_id_to_path[vir_frame_id]
         frame = imageio.imread(frame_path)
-        frame = torch.from_numpy(frame)
+        frame = torch.from_numpy(np.ascontiguousarray(frame))
         if frame.ndim == 2:
             frame = frame.unsqueeze(-1)  # grayscale image, add channel dim
         frame = frame.permute(2, 0, 1)  # HWC to CHW
-        frame = frame.float() / 255.0  # normalize to [0, 1]
-        if transform is not None:
-            frame = transform(frame)
-        return frame
+        # Normalize by the dtype max so 16-bit images (e.g. TIFFs) scale correctly.
+        return _chw_to_float01(frame, transform)

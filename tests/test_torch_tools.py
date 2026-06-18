@@ -289,6 +289,28 @@ def test_small_video_worker_reduction(tmp_path: Path):
     assert total_frames == 5
 
 
+def test_post_setup_failure_propagates():
+    """A backend that raises in _post_setup surfaces the error from setup()."""
+    from pvio.video import Video
+
+    class FailingPostSetup(Video):
+        def _validate_init_params(self):
+            pass
+
+        def _load_metadata(self):
+            return 3, (4, 5), 30.0
+
+        def _read_frame(self, index, transform=None):
+            raise NotImplementedError
+
+        def _post_setup(self):
+            raise RuntimeError("post-setup boom")
+
+    video = FailingPostSetup(path="/fake/path.mp4")
+    with pytest.raises(RuntimeError, match="post-setup boom"):
+        video.setup()
+
+
 def test_dataset_iter_without_assign_workers_raises(tmp_path: Path):
     """Bug 8: iterating VideoCollectionDataset without calling assign_workers (or using
     VideoCollectionDataLoader) must raise a clear, user-facing error."""
@@ -444,6 +466,20 @@ class TestImageDirVideoComprehensive:
         video = ImageDirVideo(d)
         with pytest.raises(RuntimeError):
             len(video)
+
+    def test_16bit_image_normalized_by_dtype_max(self, tmp_path: Path):
+        """16-bit images are normalized by 65535, not 255 (scientific TIFFs)."""
+        d = tmp_path / "f16"
+        d.mkdir()
+        val = 30000
+        img = np.full((8, 8), fill_value=val, dtype=np.uint16)
+        imageio.imwrite(d / "frame_000.tif", img)
+
+        video = ImageDirVideo(d)
+        video.setup()
+        frame = video.read_frame(0)
+        assert frame.max().item() <= 1.0  # would be ~117 if divided by 255
+        assert abs(frame.mean().item() - val / 65535.0) < 1e-3
 
     def test_grayscale_image_gets_channel_dim(self, tmp_path: Path):
         """Grayscale images are returned as (1, H, W) tensors."""
