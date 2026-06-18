@@ -781,23 +781,8 @@
 
 
 <h1 id="examples">Examples</h1>
-<div class="admonition info">
-<p class="admonition-title">Two frame representations</p>
-<p>PVIO has two layers with deliberately different frame formats:</p>
-<ul>
-<li><strong>Functional IO</strong> (<code>pvio.io</code>: <code>read_frames_from_video</code>, <code>write_frames_to_video</code>)
-  works with <strong>NumPy arrays in <code>(height, width, channels)</code> (HWC) layout</strong>, <code>uint8</code>.
-  This is the conventional image layout most libraries (imageio, OpenCV, PIL) use.</li>
-<li><strong>The PyTorch layer</strong> (<code>pvio.video</code> and <code>pvio.torch_tools</code>) yields <strong><code>torch.Tensor</code>
-  frames in <code>(channels, height, width)</code> (CHW) layout</strong>, <code>float32</code> normalised to
-  <code>[0, 1]</code>. This is the layout PyTorch models expect.</li>
-</ul>
-<p>So reading with <code>read_frames_from_video</code> gives you HWC uint8 NumPy arrays, while
-iterating a <code>VideoCollectionDataLoader</code> gives you CHW float32 tensors. Convert
-explicitly if you cross between the two layers.</p>
-</div>
-<p>The IO examples below use NumPy arrays with shape <code>(height, width, channels)</code> and
-<code>uint8</code> dtype.</p>
+<p>The IO examples below (except PyTorch examples) use NumPy arrays with shape
+<code>(height, width, channels)</code> and <code>uint8</code> dtype.</p>
 <h2 id="reading-video-metadata">Reading video metadata</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pvio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_video_metadata</span><span class="p">,</span> <span class="n">check_num_frames</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -870,6 +855,12 @@ match it. For combining frames straight from the command line, see the
 Wrap it in <code>VideoCollectionDataLoader</code> to load in parallel across workers — useful for
 inference pipelines that process every frame independently.
 <a href="https://pytorch.org/torchcodec">TorchCodec</a> is used for decoding.</p>
+<div class="admonition info">
+<p class="admonition-title">Channels-height-width frame layout</p>
+<p>Unlike other parts of this library, <code>pvio.torch_tools</code> yields frames in
+<code>(channels, height, width)</code> (CHW) layout, <code>float32</code> normalised to <code>[0, 1]</code>,
+as is standard in PyTorch.</p>
+</div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pvio.video</span><span class="w"> </span><span class="kn">import</span> <span class="n">EncodedVideo</span>   <span class="c1"># for encoded video files (e.g. MP4)</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pvio.video</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageDirVideo</span>  <span class="c1"># for directories of individual frame images</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pvio.torch_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">VideoCollectionDataset</span><span class="p">,</span> <span class="n">VideoCollectionDataLoader</span>
