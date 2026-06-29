@@ -1135,7 +1135,7 @@ wheels = [
 
 [[package]]
 name = "parallel-video-io"
-version = "0.1.8"
+version = "0.1.9"
 source = { editable = "." }
 dependencies = [
     { name = "imageio", extra = ["tifffile"] },
@@ -1184,7 +1184,7 @@ requires-dist = [
     { name = "torch", specifier = ">=2.11,<2.13" },
     { name = "torchcodec", specifier = ">=0.12,<0.15" },
     { name = "tqdm", specifier = ">=4.67,<5.0" },
-    { name = "tyro", specifier = ">=0.9,<0.12" },
+    { name = "tyro", specifier = ">=0.9,<2.0" },
 ]
 provides-extras = ["dev", "benchmark"]
 
