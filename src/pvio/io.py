@@ -58,28 +58,191 @@ def _imageio_ffmpeg_exe(exe: str | None):
             os.environ["IMAGEIO_FFMPEG_EXE"] = prev
 
 
+def _select_pixel_format(fmt) -> str:
+    """Pick a ``to_ndarray`` target that preserves *fmt*'s depth and channels.
+
+    *fmt* is a PyAV :class:`av.video.format.VideoFormat`. The chosen target keeps
+    the source's native bit depth (uint16 for >8-bit sources, uint8 otherwise)
+    and channel layout, rather than collapsing everything to 8-bit RGB the way
+    imageio's reader does. This matters for lossless high-bit-depth videos (e.g.
+    FFV1 ``gbrap16le``): an 8-bit decode keeps only the high byte, so small
+    16-bit values (in the hundreds) all map to 0/1/2 and the real data is lost.
+
+    A source alpha channel is preserved (RGBA output); a single-plane grayscale
+    source decodes to a 2-D ``(H, W)`` array. Everything else decodes to RGB.
+    """
+    high = max(c.bits for c in fmt.components) > 8
+    has_alpha = any(c.is_alpha for c in fmt.components)
+    n_color = sum(1 for c in fmt.components if not c.is_alpha)
+    is_gray = n_color == 1 and not fmt.is_rgb
+    if has_alpha:
+        return "rgba64le" if high else "rgba"
+    if is_gray:
+        return "gray16le" if high else "gray"
+    return "rgb48le" if high else "rgb24"
+
+
+def _index_at(time_base, rate, ts) -> int:
+    """Convert a stream timestamp *ts* to a (rounded) frame index."""
+    return int(round(float(ts * time_base * rate)))
+
+
+def _seek_landing(container, stream, index: int, rate, time_base) -> int | None:
+    """Seek to *index* and report which frame the seek actually lands on.
+
+    Demuxes a single packet (no decoding) and maps its timestamp back to a frame
+    index. Returns ``None`` if the packet has no timestamp. A seek lands on the
+    nearest seek point at or before the target; how far before is exactly what
+    decides the read strategy in :func:`_read_indexed_frames`.
+    """
+    container.seek(int((index / rate) / time_base), stream=stream)
+    for packet in container.demux(stream):
+        if packet.pts is None:
+            return None
+        return _index_at(time_base, rate, packet.pts)
+    return None
+
+
+def _seek_granularity(container, stream, probe_index: int, rate, time_base) -> int | None:
+    """Estimate the spacing (in frames) between seek points near *probe_index*.
+
+    Measured empirically because no metadata is reliable: an FFV1/MKV stream
+    exposes seek points roughly every dozen frames (container cues) while
+    reporting only one keyframe, whereas H.264 only lets a seek land on a GOP
+    keyframe hundreds of frames apart. Two cheap demux-only probes locate two
+    adjacent seek points; their distance is the granularity ``g``.
+
+    ``g`` drives the per-frame-seek vs forward-decode choice: jumping more than
+    ``g`` frames ahead is cheaper via a fresh seek (it skips to a nearer seek
+    point), while a shorter hop is cheaper by decoding forward (a re-seek would
+    just land back at the same seek point and re-decode). Returns ``None`` if
+    timestamps are unavailable.
+    """
+    k1 = _seek_landing(container, stream, probe_index, rate, time_base)
+    if k1 is None:
+        return None
+    if k1 <= 0:
+        # The probe already lands at the start; treat seeks as fine-grained.
+        return 1
+    k0 = _seek_landing(container, stream, k1 - 1, rate, time_base)
+    if k0 is None:
+        return None
+    return max(1, k1 - k0)
+
+
+def _read_indexed_frames(
+    container, stream, frame_indices: list[int], rate, time_base
+) -> list[np.ndarray] | None:
+    """Read specific *frame_indices* efficiently for any codec.
+
+    Walks the requested frames in sorted order with a single decoder, keeping it
+    running across frames. For each next frame it either keeps decoding forward
+    (when the frame is within one seek-granularity ``g`` of the current position)
+    or seeks afresh (when it is further ahead, or behind). This is optimal at both
+    extremes: sparse far-apart frames on an all-intra codec become a handful of
+    short seek+decodes, while several nearby frames on a long-GOP codec become a
+    single forward pass instead of one re-decoded GOP per frame.
+
+    Frames are returned in the order requested (duplicates included). Returns
+    ``None`` (caller falls back to a scan from the start) if a frame lacks a
+    timestamp; raises :class:`IndexError` if an index is past the end of stream.
+    """
+    wanted = sorted(set(frame_indices))
+    g = _seek_granularity(container, stream, wanted[-1], rate, time_base)
+    if g is None:
+        return None
+
+    collected: dict[int, np.ndarray] = {}
+    out_fmt = None
+    decoder = None
+    cur = None  # index of the most recently decoded frame
+    for target in wanted:
+        if cur is None or target < cur or target - cur > g:
+            container.seek(int((target / rate) / time_base), stream=stream)
+            decoder = container.decode(stream)
+            cur = None
+        reached = False
+        for frame in decoder:
+            if frame.pts is None:
+                return None
+            if out_fmt is None:
+                out_fmt = _select_pixel_format(frame.format)
+            cur = _index_at(time_base, rate, frame.pts)
+            if cur >= target:
+                collected[target] = frame.to_ndarray(format=out_fmt)
+                reached = True
+                break
+        if not reached:
+            raise IndexError(f"frame index {target} is out of range")
+
+    return [collected[i] for i in frame_indices]
+
+
 def read_frames_from_video(
     video_path: Path | str, frame_indices: list[int] | None = None
 ) -> tuple[list[np.ndarray], float | None]:
     """Read specific frames from a video file.
 
+    Frames are decoded with PyAV at the source's **native bit depth and channel
+    layout**: an 8-bit RGB video yields uint8 ``(H, W, 3)`` arrays, a 16-bit
+    source (e.g. lossless FFV1) yields uint16 arrays, a source with an alpha
+    channel yields 4-channel ``(H, W, 4)`` arrays, and a grayscale source yields
+    2-D ``(H, W)`` arrays. This preserves the real pixel values; decoding such
+    sources to 8-bit RGB (as imageio's reader does) would discard the low byte of
+    every 16-bit sample and collapse small values to near-zero.
+
     Args:
         video_path: Path to the video file.
-        frame_indices: Frame indices to read. If ``None``, reads all frames.
+        frame_indices: Frame indices to read, in the order returned (duplicates
+            allowed). If ``None``, reads all frames in order.
 
     Returns:
-        A 2-tuple ``(frames, fps)``. *frames* is a list of uint8 numpy arrays
-        in ``(H, W, C)`` format. *fps* is the FPS reported by the container,
-        or ``None`` if unavailable.
+        A 2-tuple ``(frames, fps)``. *frames* is a list of numpy arrays whose
+        dtype and channel count match the source (see above). *fps* is the
+        average frame rate reported by the container, or ``None`` if unavailable.
+
+    Raises:
+        IndexError: If a requested frame index is out of range.
     """
-    frames = []
-    with imageio.get_reader(video_path) as reader:
-        if frame_indices is None:
-            frame_indices = list(range(reader.count_frames()))
-        for frame_id in frame_indices:
-            frames.append(reader.get_data(frame_id))
-        fps = reader.get_meta_data().get("fps", None)
-    return frames, fps
+    with av.open(str(video_path)) as container:
+        stream = container.streams.video[0]
+        rate = stream.average_rate
+        fps = float(rate) if rate else None
+
+        if frame_indices is not None and len(frame_indices) == 0:
+            return [], fps
+
+        # Fast path: specific frames + a usable frame rate. Seek to each frame
+        # (or decode forward between nearby ones) instead of decoding the whole
+        # stream; the strategy adapts to the codec's seek granularity.
+        if frame_indices is not None and rate:
+            result = _read_indexed_frames(
+                container, stream, frame_indices, rate, stream.time_base
+            )
+            if result is not None:
+                return result, fps
+
+        # General path: a single forward decode, collecting wanted frames (or all
+        # frames when frame_indices is None). Also the fallback when frames lack
+        # timestamps; seek back to the start so indices map from frame 0.
+        container.seek(0, stream=stream)
+        target = None if frame_indices is None else set(frame_indices)
+        out_fmt = None
+        collected: dict[int, np.ndarray] = {}
+        for i, frame in enumerate(container.decode(stream)):
+            if out_fmt is None:
+                out_fmt = _select_pixel_format(frame.format)
+            if target is None or i in target:
+                collected[i] = frame.to_ndarray(format=out_fmt)
+                if target is not None and len(collected) == len(target):
+                    break
+
+    if frame_indices is None:
+        return [collected[i] for i in sorted(collected)], fps
+    missing = [i for i in frame_indices if i not in collected]
+    if missing:
+        raise IndexError(f"frame indices {sorted(set(missing))} are out of range")
+    return [collected[i] for i in frame_indices], fps
 
 
 def write_frames_to_video(
