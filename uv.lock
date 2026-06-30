@@ -1135,7 +1135,7 @@ wheels = [
 
 [[package]]
 name = "parallel-video-io"
-version = "0.1.9"
+version = "0.1.10a0"
 source = { editable = "." }
 dependencies = [
     { name = "imageio", extra = ["tifffile"] },
