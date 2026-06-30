@@ -12,7 +12,7 @@ from pvio.io import (
     read_frames_from_video,
     get_video_metadata,
     check_num_frames,
-    _compute_file_checksum,
+    _file_signature,
 )
 
 from .test_utils import make_simple_frames
@@ -68,13 +68,16 @@ def test_get_video_metadata_uses_cache(tmp_path: Path):
     write_frames_to_video(out, frames, fps=5.0)
 
     # Write fake metadata at the correct cache path (name + suffix, not replacing
-    # suffix). A matching checksum makes the cache trusted, so the fake values are used.
+    # suffix). A matching (size, mtime) signature makes the cache trusted, so the
+    # fake values are used.
     meta_file = out.parent / (out.name + ".metadata.json")
+    size, mtime_ns = _file_signature(out)
     fake_meta = {
         "n_frames": 123,
         "frame_size": [32, 32],
         "fps": 12.0,
-        "checksum": _compute_file_checksum(out),
+        "size": size,
+        "mtime_ns": mtime_ns,
     }
     with open(meta_file, "w") as f:
         json.dump(fake_meta, f)
@@ -313,11 +316,12 @@ def test_get_video_metadata_cache_written(tmp_path: Path):
     with open(cache) as f:
         data = json.load(f)
     assert "n_frames" in data and "frame_size" in data and "fps" in data
-    assert data["checksum"] == _compute_file_checksum(out)
+    st = out.stat()
+    assert data["size"] == st.st_size and data["mtime_ns"] == st.st_mtime_ns
 
 
 def test_get_video_metadata_invalidates_cache_on_modification(tmp_path: Path):
-    """A changed video checksum invalidates the cache and forces a re-read."""
+    """A changed video (size, mtime) signature invalidates the cache and forces a re-read."""
     out = tmp_path / "modified.mp4"
     write_frames_to_video(out, make_simple_frames(n=3, h=16, w=16), fps=5.0)
 
@@ -330,12 +334,13 @@ def test_get_video_metadata_invalidates_cache_on_modification(tmp_path: Path):
     second = get_video_metadata(out, cache_metadata=True, use_cached_metadata=True)
     assert second.n_frames == 7
 
-    # The cache file must have been rewritten with the new video's checksum.
+    # The cache file must have been rewritten with the new video's signature.
     cache = out.parent / (out.name + ".metadata.json")
     with open(cache) as f:
         data = json.load(f)
     assert data["n_frames"] == 7
-    assert data["checksum"] == _compute_file_checksum(out)
+    st = out.stat()
+    assert data["size"] == st.st_size and data["mtime_ns"] == st.st_mtime_ns
 
 
 def test_get_video_metadata_cache_stores_signature(tmp_path: Path):
@@ -352,8 +357,8 @@ def test_get_video_metadata_cache_stores_signature(tmp_path: Path):
     assert data["mtime_ns"] == st.st_mtime_ns
 
 
-def test_get_video_metadata_unchanged_file_skips_checksum(tmp_path: Path, monkeypatch):
-    """An unchanged (size, mtime) cache hit must not re-hash the whole video."""
+def test_get_video_metadata_unchanged_file_skips_reread(tmp_path: Path, monkeypatch):
+    """An unchanged (size, mtime) cache hit must not re-probe the video."""
     import pvio.io as pvio_io
 
     out = tmp_path / "fast.mp4"
@@ -361,22 +366,24 @@ def test_get_video_metadata_unchanged_file_skips_checksum(tmp_path: Path, monkey
     get_video_metadata(out, cache_metadata=True, use_cached_metadata=True)  # prime
 
     def _boom(*args, **kwargs):
-        raise AssertionError("checksum should not be computed on the stat fast path")
+        raise AssertionError("video must not be re-probed on the stat fast path")
 
-    monkeypatch.setattr(pvio_io, "_compute_file_checksum", _boom)
+    monkeypatch.setattr(pvio_io, "_probe_video", _boom)
     meta = get_video_metadata(out, cache_metadata=True, use_cached_metadata=True)
     assert meta.n_frames == 3
 
 
-def test_get_video_metadata_touch_preserving_bytes_is_trusted(tmp_path: Path):
-    """A touched-but-unchanged video falls back to the checksum and stays valid."""
+def test_get_video_metadata_touch_reread_stays_correct(tmp_path: Path):
+    """A touched video (changed mtime) is re-probed and still returns correct metadata."""
     import os
 
     out = tmp_path / "touched.mp4"
     write_frames_to_video(out, make_simple_frames(n=5, h=16, w=16), fps=5.0)
     first = get_video_metadata(out, cache_metadata=True, use_cached_metadata=True)
 
-    # Bump mtime without changing the bytes (e.g. a copy or `touch`).
+    # Bump mtime without changing the bytes (e.g. a copy or `touch`). The signature
+    # no longer matches, so the cache is invalidated and the metadata re-read --
+    # which is cheap and yields the same (correct) answer.
     st = out.stat()
     os.utime(out, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
 
@@ -384,8 +391,8 @@ def test_get_video_metadata_touch_preserving_bytes_is_trusted(tmp_path: Path):
     assert second.n_frames == first.n_frames == 5
 
 
-def test_get_video_metadata_legacy_cache_without_checksum_reread(tmp_path: Path):
-    """A cache file lacking a checksum (older format) is re-read, not trusted."""
+def test_get_video_metadata_legacy_cache_without_signature_reread(tmp_path: Path):
+    """A cache file lacking a (size, mtime) signature (older format) is re-read, not trusted."""
     out = tmp_path / "legacy.mp4"
     write_frames_to_video(out, make_simple_frames(n=4, h=16, w=16), fps=5.0)
 
@@ -396,7 +403,8 @@ def test_get_video_metadata_legacy_cache_without_checksum_reread(tmp_path: Path)
     meta = get_video_metadata(out, cache_metadata=True, use_cached_metadata=True)
     assert meta.n_frames == 4
 
-    # The cache is upgraded in place to include a checksum.
+    # The cache is upgraded in place to include the (size, mtime) signature.
     with open(cache) as f:
         data = json.load(f)
-    assert data["checksum"] == _compute_file_checksum(out)
+    st = out.stat()
+    assert data["size"] == st.st_size and data["mtime_ns"] == st.st_mtime_ns

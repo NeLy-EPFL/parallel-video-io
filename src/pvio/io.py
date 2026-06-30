@@ -1,11 +1,11 @@
 import numpy as np
-import hashlib
 import json
 import logging
 import os
 import sys
 import tempfile
 import contextlib
+import av
 import imageio.v2 as imageio
 from pathlib import Path
 from typing import NamedTuple
@@ -417,6 +417,37 @@ def _encode_frames(
                 logger.info(f"Written frame {i + 1}/{n_frames}")
 
 
+def _probe_video(video_path: Path | str) -> tuple[int, tuple[int, int], float | None]:
+    """Read ``(n_frames, (height, width), fps)`` from a video without decoding.
+
+    Uses PyAV (libav* bindings) to read the container/stream headers directly,
+    so frame size and FPS are available instantly. The frame count comes from
+    the stream header when present; otherwise it is obtained by *demuxing* the
+    stream (counting compressed packets) rather than decoding frames.
+
+    Counting via decode -- which is what ``imageio``'s ``count_frames()`` does by
+    running ``ffmpeg -vf null -f null -`` -- is catastrophically slow on large
+    lossless videos because every frame is fully decoded just to be discarded.
+    Demuxing packets touches the same data ``ffprobe -count_packets`` does and
+    stays sub-second even for multi-GB files.
+    """
+    with av.open(str(video_path)) as container:
+        stream = container.streams.video[0]
+        codec_ctx = stream.codec_context
+        frame_size = (codec_ctx.height, codec_ctx.width)
+        rate = stream.average_rate
+        fps = float(rate) if rate else None
+
+        num_frames = stream.frames
+        if num_frames <= 0:
+            # Header has no frame count (common for MKV). Count packets by
+            # demuxing; this does NOT decode frames. The flush packet emitted at
+            # end-of-stream has size 0, so it is excluded.
+            num_frames = sum(1 for packet in container.demux(stream) if packet.size > 0)
+
+    return num_frames, frame_size, fps
+
+
 def check_num_frames(video_path: Path | str) -> int:
     """Return the number of frames in a video file.
 
@@ -430,35 +461,21 @@ def check_num_frames(video_path: Path | str) -> int:
         RuntimeError: If the file cannot be opened.
     """
     try:
-        with imageio.get_reader(video_path) as reader:
-            num_frames = reader.count_frames()
+        num_frames, _, _ = _probe_video(video_path)
     except Exception as e:
         raise RuntimeError(f"Failed to open video file: {video_path}") from e
     return num_frames
 
 
-def _compute_file_checksum(path: Path | str, *, chunk_size: int = 1 << 20) -> str:
-    """Return a hex checksum of *path*'s contents.
-
-    Uses BLAKE2b, reading the file in *chunk_size*-byte chunks so memory stays
-    bounded regardless of file size. This is the authoritative staleness check,
-    but reading every byte of a large video is not free, so the cache first uses
-    a cheap ``(size, mtime)`` guard (see :func:`_file_signature`) and only falls
-    back to hashing when that guard does not match.
-    """
-    hasher = hashlib.blake2b()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(chunk_size), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
-
-
 def _file_signature(path: Path | str) -> tuple[int, int]:
     """Return a cheap ``(size_bytes, mtime_ns)`` fingerprint of *path*.
 
-    Used as a fast first-pass staleness guard: if a file's size and modification
-    time are unchanged since the cache was written, its contents are almost
-    certainly unchanged and the (expensive) content checksum can be skipped.
+    Used as the staleness guard: if a file's size and modification time are
+    unchanged since the cache was written, its contents are treated as unchanged.
+    Any normal write (re-encode, truncate, append) bumps the size and/or mtime,
+    so this is reliable in practice. The fingerprint is read from a single
+    ``stat()`` call, so validation never touches the file contents -- important
+    for multi-GB videos where hashing every byte would dominate the runtime.
     """
     st = os.stat(path)
     return st.st_size, st.st_mtime_ns
@@ -467,18 +484,15 @@ def _file_signature(path: Path | str) -> tuple[int, int]:
 def _read_metadata_cache(cache_path: Path, video_path: Path) -> VideoMetadata | None:
     """Load and validate the sidecar metadata cache.
 
-    Returns the cached :class:`VideoMetadata` when the cache is present and still
-    matches the video, and ``None`` to signal that the cache cannot be trusted
-    and the metadata must be re-read (because the cache predates checksums or the
-    video has since been modified).
-
-    Validation is two-tier to keep the hot path cheap: the cached ``(size,
-    mtime)`` signature is checked first, and the full content checksum is
-    computed only when that cheap guard does not match (e.g. the file was
-    touched/copied), so an unchanged video is trusted without re-hashing it.
+    Returns the cached :class:`VideoMetadata` when the cache is present and its
+    stored ``(size, mtime_ns)`` signature still matches the video, and ``None``
+    to signal that the cache cannot be trusted and the metadata must be re-read
+    (because the cache predates the signature format or the video has since been
+    modified). Validation is a single ``stat()`` -- the video contents are never
+    read here.
 
     Raises if the cache file exists but is structurally corrupt (unparseable
-    JSON or a checksum-validated payload missing required fields).
+    JSON or a signature-validated payload missing required fields).
     """
     try:
         with open(cache_path, "r") as f:
@@ -487,49 +501,26 @@ def _read_metadata_cache(cache_path: Path, video_path: Path) -> VideoMetadata | 
         logger.critical(f"Corrupted metadata cache file {cache_path}: {e}")
         raise
 
-    cached_checksum = metadata.get("checksum")
-    if cached_checksum is None:
+    if metadata.get("size") is None or metadata.get("mtime_ns") is None:
         logger.info(
-            f"Metadata cache {cache_path} has no checksum (likely written by an "
-            f"older version); re-reading metadata from the video."
+            f"Metadata cache {cache_path} has no (size, mtime) signature (likely "
+            f"written by an older version); re-reading metadata from the video."
         )
         return None
 
     size, mtime_ns = _file_signature(video_path)
-    signature_matches = (
-        metadata.get("size") == size and metadata.get("mtime_ns") == mtime_ns
-    )
-    # Cheap guard failed (or is absent): fall back to the authoritative checksum
-    # before declaring the cache stale, so a mere touch/copy doesn't force a full
-    # metadata re-read when the bytes are actually unchanged.
-    if not signature_matches:
+    if metadata["size"] != size or metadata["mtime_ns"] != mtime_ns:
         logger.info(
-            "Metadata cache %s: size/mtime differs from video; computing checksum to verify.",
+            "Metadata cache %s: size/mtime differs from video; cache is stale and "
+            "metadata will be re-read.",
             cache_path,
         )
-        if cached_checksum != _compute_file_checksum(video_path):
-            logger.info(
-                "Checksum mismatch for %s; cache is stale and metadata will be re-read.",
-                video_path,
-            )
-            return None
-        logger.info(
-            "Checksum matches for %s despite size/mtime change; updating cached signature.",
-            video_path,
-        )
-        _write_metadata_cache(
-            cache_path,
-            video_path,
-            metadata["n_frames"],
-            tuple(metadata["frame_size"]),
-            metadata["fps"],
-        )
-    else:
-        logger.info(
-            "Metadata cache %s matches video signature; using cached metadata directly.",
-            cache_path,
-        )
+        return None
 
+    logger.info(
+        "Metadata cache %s matches video signature; using cached metadata directly.",
+        cache_path,
+    )
     try:
         return VideoMetadata(
             n_frames=metadata["n_frames"],
@@ -550,9 +541,9 @@ def _write_metadata_cache(
 ) -> None:
     """Atomically write the sidecar metadata cache.
 
-    Stores both the cheap ``(size, mtime_ns)`` signature and the authoritative
-    content checksum so :func:`_read_metadata_cache` can validate cheaply first
-    and only hash when the signature drifts.
+    Stores the cheap ``(size, mtime_ns)`` signature alongside the metadata so
+    :func:`_read_metadata_cache` can validate with a single ``stat()`` and never
+    re-read the video's contents.
     """
     size, mtime_ns = _file_signature(video_path)
     metadata = {
@@ -561,7 +552,6 @@ def _write_metadata_cache(
         "fps": fps,
         "size": size,
         "mtime_ns": mtime_ns,
-        "checksum": _compute_file_checksum(video_path),
     }
     with tempfile.NamedTemporaryFile(
         mode="w", dir=cache_path.parent, suffix=".tmp", delete=False
@@ -580,17 +570,17 @@ def get_video_metadata(
     """Return frame count, frame size, and FPS for a video file.
 
     Results are cached to a sidecar JSON file alongside the video to avoid
-    re-reading on subsequent calls. The cache stores a checksum of the video's
-    contents and is automatically invalidated (the metadata is re-read and the
-    cache rewritten) whenever the video has been modified, so using the cache is
-    always safe.
+    re-reading on subsequent calls. The cache stores the video's ``(size,
+    mtime)`` signature and is automatically invalidated (the metadata is re-read
+    and the cache rewritten) whenever that signature changes, i.e. whenever the
+    video has been modified, so using the cache is safe in practice.
 
     Args:
         video_path: Path to the video file.
         cache_metadata: Write metadata to a cache file after reading.
         use_cached_metadata: Return cached metadata when the sidecar file exists
-            and its checksum still matches the video. Set to ``False`` to force a
-            fresh read regardless of the cache.
+            and its ``(size, mtime)`` signature still matches the video. Set to
+            ``False`` to force a fresh read regardless of the cache.
         metadata_suffix: Suffix appended to the video filename to form the
             cache path. Default: ``".metadata.json"``.
 
@@ -613,9 +603,7 @@ def get_video_metadata(
                 cache_path,
             )
 
-    n_frames = check_num_frames(video_path)
-    sample_frames, fps = read_frames_from_video(video_path, frame_indices=[0])
-    frame_size = sample_frames[0].shape[:2]
+    n_frames, frame_size, fps = _probe_video(video_path)
 
     if cache_metadata:
         _write_metadata_cache(cache_path, video_path, n_frames, frame_size, fps)
